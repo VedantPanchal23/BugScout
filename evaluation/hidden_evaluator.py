@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import json
@@ -126,10 +126,18 @@ class HiddenBenchmarkEvaluator:
         specificity = round((tn / negative_cases) * 100, 2)
 
         summary = {
+            "experiment_id": "hidden_generalization_benchmark",
             "random_seed_id": self.rand_id,
             "hidden_cases": total_hidden_cases,
             "vulnerable_cases": vulnerable_cases,
             "negative_cases": negative_cases,
+            "confusion_matrix": {
+                "true_positives": tp,
+                "false_positives": fp,
+                "false_negatives": fn,
+                "true_negatives": tn,
+                "total_cases": total_hidden_cases
+            },
             "detected_vulnerabilities_tp": tp,
             "false_positives_fp": fp,
             "false_negatives_fn": fn,

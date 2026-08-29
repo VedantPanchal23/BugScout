@@ -69,9 +69,34 @@ class BudgetCurveEvaluator:
                 "efficiency_per_100_reqs": eff
             })
 
+        # Algorithmic Pareto Dominance Computation:
+        # Configuration j dominates i if: cost_j <= cost_i AND recall_j >= recall_i with strict inequality
+        for pt in curve_points:
+            x_i = pt["actual_requests"]
+            y_i = pt["recall_percent"]
+            is_dominated = False
+            dominating_source = None
+
+            for other in curve_points:
+                x_j = other["actual_requests"]
+                y_j = other["recall_percent"]
+                if (x_j <= x_i and y_j >= y_i) and (x_j < x_i or y_j > y_i):
+                    is_dominated = True
+                    dominating_source = other["name"].split("(")[0].strip()
+                    break
+
+            if is_dominated:
+                pt["pareto_status"] = f"Dominated (by {dominating_source})"
+                pt["is_on_frontier"] = False
+            else:
+                pt["pareto_status"] = "Non-Dominated (Frontier)"
+                pt["is_on_frontier"] = True
+
         summary = {
             "total_seeded_vulnerabilities": total_seeded,
             "pareto_curve_points": curve_points,
+            "non_dominated_configurations": [p["name"] for p in curve_points if p["is_on_frontier"]],
+            "dominated_configurations": [p["name"] for p in curve_points if not p["is_on_frontier"]],
             "key_finding": "BugScout achieves 70.37% recall at 153 requests (12.42 vulns/100 reqs), reaching 86.4% of the blind baseline's recall while utilizing only 35.7% of the baseline traffic."
         }
 
@@ -90,17 +115,17 @@ class BudgetCurveEvaluator:
         table.add_column("Vulnerabilities Found", justify="center")
         table.add_column("Recall (%)", justify="center", style="bold green")
         table.add_column("Efficiency (Vulns / 100 Reqs)", justify="center", style="cyan")
-        table.add_column("Pareto Status", justify="center", style="magenta")
+        table.add_column("Pareto Status (Algorithmic)", justify="center", style="magenta")
 
         for pt in data["pareto_curve_points"]:
-            pareto_str = "Optimal" if pt["actual_requests"] == 153 else ("Diminishing Returns" if pt["actual_requests"] > 153 else "Sub-optimal")
+            p_style = "bold green" if pt["is_on_frontier"] else "bold yellow"
             table.add_row(
                 pt["name"],
                 str(pt["actual_requests"]),
                 f"{pt['vulnerabilities_found']} / {data['total_seeded_vulnerabilities']}",
                 f"{pt['recall_percent']}%",
                 str(pt["efficiency_per_100_reqs"]),
-                pareto_str
+                f"[{p_style}]{pt['pareto_status']}[/{p_style}]"
             )
 
         self.console.print("\n")

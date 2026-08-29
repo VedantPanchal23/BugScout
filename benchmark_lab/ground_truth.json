@@ -1,4 +1,4 @@
-﻿{
+{
   "benchmark_name": "BugScout Academic Security Benchmark Lab v2.0",
   "benchmark_version": "2.0-groundtruth",
   "total_known_endpoints": 45,
@@ -36,9 +36,9 @@
     { "test_id": "GQL-01", "name": "GraphQL Schema Introspection Enabled", "vuln_class": "GraphQL Schema Introspection Enabled", "cwe_id": "CWE-200", "path": "/graphql", "method": "POST", "parameter": null, "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "__schema" },
     { "test_id": "HDR-01", "name": "Missing Critical Security Headers", "vuln_class": "Missing Critical Security Headers / Clickjacking", "cwe_id": "CWE-1021", "path": "/", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "Low", "evidence_pattern": "Missing Headers" },
 
-    { "test_id": "HIDDEN-01", "name": "Unseen Generalization (Catalog Query SQLi)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/catalog/item", "method": "GET", "parameter": "query", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
-    { "test_id": "HIDDEN-02", "name": "Unseen Generalization (Portal View XSS)", "vuln_class": "Cross-Site Scripting (XSS)", "cwe_id": "CWE-79", "path": "/portal/view", "method": "GET", "parameter": "name", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "<scout_xss_marker" },
-    { "test_id": "HIDDEN-03", "name": "Unseen Generalization (Legacy Read Traversal)", "vuln_class": "Path / Directory Traversal", "cwe_id": "CWE-22", "path": "/legacy/read", "method": "GET", "parameter": "doc", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "root:x:0:0" }
+    { "test_id": "UNSEEN-01", "name": "Unlinked Route (Catalog Query SQLi)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/catalog/item", "method": "GET", "parameter": "query", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+    { "test_id": "UNSEEN-02", "name": "Unlinked Route (Portal View XSS)", "vuln_class": "Cross-Site Scripting (XSS)", "cwe_id": "CWE-79", "path": "/portal/view", "method": "GET", "parameter": "name", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "<scout_xss_marker" },
+    { "test_id": "UNSEEN-03", "name": "Unlinked Route (Legacy Read Traversal)", "vuln_class": "Path / Directory Traversal", "cwe_id": "CWE-22", "path": "/legacy/read", "method": "GET", "parameter": "doc", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "root:x:0:0" }
   ],
   "safe_negative_decoys": [
     { "test_id": "SQLi-N01", "name": "Safe Parameterized Search", "path": "/api/safe-search", "method": "GET", "parameter": "q", "is_vulnerable": false, "reason": "Uses parameterized DB query; no syntax errors leaked." },

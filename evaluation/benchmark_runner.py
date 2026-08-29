@@ -65,12 +65,25 @@ class BenchmarkEvaluator:
 
         # Generate Reproducibility Manifest
         from core.reproducibility import generate_reproducibility_manifest
+        cm = results_summary["confusion_matrix"]
         generate_reproducibility_manifest(
             experiment_name="46-Case Ground Truth Benchmark Evaluation",
+            experiment_id="primary_46_case_benchmark",
             benchmark_version="v2.1",
+            request_budget=153,
             total_requests=context.stats.total_requests_sent,
-            findings_count=len(context.findings),
-            extra_metrics=results_summary.get("metrics")
+            dataset={
+                "total_cases": cm["total_evaluated_cases"],
+                "positive_cases": cm["true_positives"] + cm["false_negatives"],
+                "negative_cases": cm["true_negatives"] + cm["false_positives"]
+            },
+            confusion_matrix={
+                "true_positives": cm["true_positives"],
+                "true_negatives": cm["true_negatives"],
+                "false_positives": cm["false_positives"],
+                "false_negatives": cm["false_negatives"]
+            },
+            metrics=results_summary["metrics"]
         )
 
         return results_summary
@@ -211,17 +224,26 @@ class BenchmarkEvaluator:
                 "false_positives": val["false_positives"]
             }
 
-        # 4. Root Cause Taxonomy for 8 False Negatives
+        # 4. Root Cause Taxonomy for 8 False Negatives with Formal Failure Stages
         fn_taxonomy = [
-            {"id": "SQLi-V05", "name": "Time-Based Blind SQLi", "why_missed": "Timing delay thresholds require multi-stage jitter baseline comparison.", "agent": "ObservationAgent", "fix": "Implement statistical response time distribution analyzer"},
-            {"id": "XSS-V03", "name": "JS Script-Context XSS", "why_missed": "Reflection inside quoted JS variable requires AST/DOM context parser.", "agent": "ObservationAgent", "fix": "Add JavaScript lexical token reflection matcher"},
-            {"id": "TRAV-V03", "name": "Windows Path Traversal", "why_missed": "Operating system heuristic prioritized POSIX /etc/passwd over win.ini.", "agent": "ThreatReasoningAgent", "fix": "Cross-platform OS traversal payload rotation"},
-            {"id": "RED-V02", "name": "Goto Path Open Redirect", "why_missed": "Secondary redirection path parameter unrecognized by default crawler.", "agent": "ReconAgent", "fix": "Expand parameter name ontology to include secondary routing terms"},
-            {"id": "AUTH-V02", "name": "Broken Auth Config", "why_missed": "Privileged config endpoint exposed without auth; required deeper route enumeration.", "agent": "ReconAgent", "fix": "Integrate recursive privileged route dictionary"},
-            {"id": "UNSEEN-01", "name": "Hidden Catalog SQLi", "why_missed": "Obfuscated path requires multi-step state graph exploration.", "agent": "ReconAgent", "fix": "Add state-machine workflow exploration graph"},
-            {"id": "UNSEEN-02", "name": "Hidden Portal XSS", "why_missed": "Dynamic DOM interaction required to reveal query reflection.", "agent": "ReconAgent", "fix": "Integrate headless Chromium DOM renderer"},
-            {"id": "UNSEEN-03", "name": "Hidden Legacy Traversal", "why_missed": "Non-standard query parameter requiring blind parameter fuzzing.", "agent": "ThreatReasoningAgent", "fix": "Add probabilistic parameter discovery engine"}
+            {"id": "SQLi-05", "name": "Time-Based Blind SQLi", "category": "SQLi", "endpoint": "GET /api/analytics", "stage": "OBSERVATION", "why_missed": "Timing delay thresholds require multi-stage jitter baseline comparison.", "agent": "ObservationAgent", "fix": "Implement statistical response time distribution analyzer"},
+            {"id": "XSS-03", "name": "JS Script-Context XSS", "category": "XSS", "endpoint": "GET /app/config", "stage": "OBSERVATION", "why_missed": "Reflection inside quoted JS variable requires AST/DOM context parser.", "agent": "ObservationAgent", "fix": "Add JavaScript lexical token reflection matcher"},
+            {"id": "TRAV-03", "name": "Windows Path Traversal", "category": "TRAV", "endpoint": "GET /api/v2/system-file", "stage": "REASONING", "why_missed": "Operating system heuristic prioritized POSIX /etc/passwd over win.ini.", "agent": "ThreatReasoningAgent", "fix": "Cross-platform OS traversal payload rotation"},
+            {"id": "RED-02", "name": "Goto Path Open Redirect", "category": "RED", "endpoint": "GET /goto", "stage": "RECON", "why_missed": "Secondary redirection path parameter unrecognized by default crawler.", "agent": "ReconAgent", "fix": "Expand parameter name ontology to include secondary routing terms"},
+            {"id": "AUTH-02", "name": "Broken Auth Config", "category": "AUTH", "endpoint": "GET /api/v2/admin/config", "stage": "RECON", "why_missed": "Privileged config endpoint exposed without auth; required deeper route enumeration.", "agent": "ReconAgent", "fix": "Integrate recursive privileged route dictionary"},
+            {"id": "UNSEEN-01", "name": "Unlinked Route (Catalog SQLi)", "category": "UNSEEN", "endpoint": "GET /catalog/item", "stage": "RECON", "why_missed": "Unlinked path requires multi-step state graph exploration.", "agent": "ReconAgent", "fix": "Add state-machine workflow exploration graph"},
+            {"id": "UNSEEN-02", "name": "Unlinked Route (Portal XSS)", "category": "UNSEEN", "endpoint": "GET /portal/view", "stage": "RECON", "why_missed": "Dynamic DOM interaction required to reveal query reflection.", "agent": "ReconAgent", "fix": "Integrate headless Chromium DOM renderer"},
+            {"id": "UNSEEN-03", "name": "Unlinked Route (Legacy Traversal)", "category": "UNSEEN", "endpoint": "GET /legacy/read", "stage": "REASONING", "why_missed": "Non-standard query parameter requiring blind parameter fuzzing.", "agent": "ThreatReasoningAgent", "fix": "Add probabilistic parameter discovery engine"}
         ]
+
+        stage_counts = {
+            "RECON": sum(1 for f in fn_taxonomy if f["stage"] == "RECON"),
+            "REASONING": sum(1 for f in fn_taxonomy if f["stage"] == "REASONING"),
+            "OBSERVATION": sum(1 for f in fn_taxonomy if f["stage"] == "OBSERVATION"),
+            "POLICY": sum(1 for f in fn_taxonomy if f["stage"] == "POLICY"),
+            "PROBE": sum(1 for f in fn_taxonomy if f["stage"] == "PROBE"),
+            "VALIDATION": sum(1 for f in fn_taxonomy if f["stage"] == "VALIDATION")
+        }
 
         endpoints_discovered = len(context.endpoint_map)
 
