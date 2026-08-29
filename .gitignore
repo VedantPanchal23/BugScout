@@ -16,6 +16,10 @@ outputs/*.html
 outputs/*.sarif
 !outputs/.gitkeep
 !outputs/FINAL_AUDIT_REPORT.md
+!outputs/FINAL_SECURITY_AUDIT.md
+!outputs/IMPLEMENTATION_REALITY_AUDIT.md
+!outputs/EXPERIMENT_INTEGRITY_REPORT.md
+!outputs/REPRODUCIBILITY_GUIDE.md
 !outputs/ReproducibilityManifest.json
 
 # Environment variables & secrets

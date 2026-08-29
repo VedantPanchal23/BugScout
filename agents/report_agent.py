@@ -521,6 +521,16 @@ class ReportAgent(BaseAgent):
             }
         });
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         // Render Findings
         let currentFilter = 'ALL';
         function renderFindings() {
@@ -542,34 +552,43 @@ class ReportAgent(BaseAgent):
             filtered.forEach((f, idx) => {
                 const card = document.createElement('div');
                 card.className = 'finding-card';
+                const safeTitle = escapeHtml(f.title);
+                const safeEndpoint = escapeHtml(f.affected_endpoint);
+                const safeDesc = escapeHtml(f.description);
+                const safeCurl = escapeHtml(f.reproduction_curl);
+                const safeEvidence = escapeHtml(f.evidence);
+                const safeRemediation = escapeHtml(f.remediation);
+                const safeMethod = escapeHtml(f.http_method);
+                const safeSeverity = escapeHtml(f.severity);
+
                 card.innerHTML = `
                     <div class="finding-header" onclick="toggleCard('body-` + idx + `')">
                         <div class="finding-title">
-                            <span class="badge badge-` + f.severity + `">` + f.severity + `</span>
-                            <span>` + f.title + `</span>
+                            <span class="badge badge-` + safeSeverity + `">` + safeSeverity + `</span>
+                            <span>` + safeTitle + `</span>
                         </div>
                         <div style="font-size: 13px; color: #8b949e;">
                             CVSS: <strong>` + f.cvss_score + `</strong> | CWE: <strong>` + f.cwe_id + `</strong>
                         </div>
                     </div>
                     <div id="body-` + idx + `" class="finding-body">
-                        <p><strong>Endpoint:</strong> <code>` + f.http_method + ` ` + f.affected_endpoint + `</code></p>
-                        <p><strong>Description:</strong> ` + f.description + `</p>
+                        <p><strong>Endpoint:</strong> <code>` + safeMethod + ` ` + safeEndpoint + `</code></p>
+                        <p><strong>Description:</strong> ` + safeDesc + `</p>
                         
                         <div style="margin-top: 12px;">
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText(encodeURIComponent('` + f.reproduction_curl + `')); this.innerText='Copied!';">Copy cURL</button>
+                            <button class="copy-btn" onclick="navigator.clipboard.writeText(decodeURIComponent('` + encodeURIComponent(f.reproduction_curl) + `')); this.innerText='Copied!';">Copy cURL</button>
                             <strong>Proof of Concept (cURL):</strong>
-                            <pre><code>` + f.reproduction_curl + `</code></pre>
+                            <pre><code>` + safeCurl + `</code></pre>
                         </div>
                         
                         <div style="margin-top: 12px;">
                             <strong>Technical Evidence:</strong>
-                            <pre><code>` + f.evidence + `</code></pre>
+                            <pre><code>` + safeEvidence + `</code></pre>
                         </div>
 
                         <div style="margin-top: 12px;">
                             <strong>Remediation:</strong>
-                            <p style="color: #56d364;">` + f.remediation + `</p>
+                            <p style="color: #56d364;">` + safeRemediation + `</p>
                         </div>
                     </div>
                 `;
