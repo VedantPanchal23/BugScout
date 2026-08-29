@@ -45,8 +45,15 @@ class ScopeGuard:
 
     def is_private_or_restricted_ip(self, host: str) -> bool:
         """Check if host resolves to a private, loopback, link-local, or cloud metadata IP."""
-        # Strip port and brackets if IPv6
-        host_clean = host.split(":")[0].strip("[]").strip()
+        if not host:
+            return False
+
+        # Clean host (handle bracketed IPv6 with port like [2001:db8::1]:8080 or IPv4 host:port)
+        host_clean = host.strip()
+        if host_clean.startswith("["):
+            host_clean = host_clean.split("]")[0].strip("[")
+        elif host_clean.count(":") == 1:
+            host_clean = host_clean.split(":")[0]
 
         if host_clean.lower() in ["localhost", "127.0.0.1", "::1", "0.0.0.0", "0", "127.1"]:
             return True
@@ -54,25 +61,38 @@ class ScopeGuard:
         if host_clean.lower() in self.CLOUD_METADATA_IPS or "metadata" in host_clean.lower():
             return True
 
-        # Check integer/hex representations of 127.0.0.1 (e.g. 2130706433, 0x7f000001)
-        if host_clean.isdigit():
-            try:
-                ip = ipaddress.IPv4Address(int(host_clean))
-                return ip.is_private or ip.is_loopback or ip.is_link_local
-            except ValueError:
-                pass
-
+        # 1. Try standard IP parsing (handles full IPv4 and IPv6 strings correctly)
         try:
             ip = ipaddress.ip_address(host_clean)
             return (
                 ip.is_private or
                 ip.is_loopback or
-                ip.is_link_local or
-                ip.is_reserved or
-                ip.is_multicast
+                ip.is_link_local
             )
         except ValueError:
-            return False
+            pass
+
+        # 2. Check 32-bit integer IPv4 representations (e.g. 2130706433 for 127.0.0.1)
+        if host_clean.isdigit():
+            try:
+                num = int(host_clean)
+                if 0 <= num <= 0xFFFFFFFF:
+                    ip = ipaddress.IPv4Address(num)
+                    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            except ValueError:
+                pass
+
+        # 3. Check hex representations (e.g. 0x7f000001)
+        if host_clean.lower().startswith("0x"):
+            try:
+                num = int(host_clean, 16)
+                if 0 <= num <= 0xFFFFFFFF:
+                    ip = ipaddress.IPv4Address(num)
+                    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            except ValueError:
+                pass
+
+        return False
 
     def resolve_and_verify_ip(self, host: str) -> Tuple[bool, Optional[str]]:
         """
@@ -80,10 +100,15 @@ class ScopeGuard:
         before network connection. Prevents DNS rebinding SSRF escapes.
         """
         import socket
-        host_clean = host.split(":")[0].strip("[]").strip()
+        host_clean = host.strip()
+        if host_clean.startswith("["):
+            host_clean = host_clean.split("]")[0].strip("[")
+        elif host_clean.count(":") == 1:
+            host_clean = host_clean.split(":")[0]
+
         if self.is_private_or_restricted_ip(host_clean):
             if not self.config.allow_localhost_for_testing:
-                return False, f"Direct private/restricted host blocked: {host_clean}"
+                return False, f"Private / Localhost IP address blocked by default: {host_clean}"
             return True, None
 
         # Attempt DNS resolution
@@ -139,10 +164,10 @@ class ScopeGuard:
         if hostname.lower() in self.CLOUD_METADATA_IPS or "metadata" in hostname.lower():
             return False, f"Hard blocked cloud metadata target: {hostname}"
 
-        # Private IP protection
-        if self.is_private_or_restricted_ip(hostname):
-            if not self.config.allow_localhost_for_testing:
-                return False, f"Private / Localhost IP address blocked by default: {hostname}"
+        # Private IP protection & Pre-connect DNS Resolution Verification
+        valid_ip, ip_reason = self.resolve_and_verify_ip(hostname)
+        if not valid_ip:
+            return False, ip_reason
 
         # Allowed host matching (supports subdomains *.domain.com and host:port)
         if self.config.allowed_hosts:
