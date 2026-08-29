@@ -7,7 +7,7 @@ async def test_4_tier_ablation_study():
     runner = AblationStudyRunner(port=8892)
     results = await runner.run_ablation_study()
 
-    assert "system_1_rules_only" in results
-    assert "system_2_rules_llm" in results
-    assert "system_3_llm_replanning" in results
-    assert "system_4_full_bugscout" in results
+    assert "tier_1_rules_only" in results
+    assert "tier_2_rules_llm" in results
+    assert "tier_3_llm_replanning" in results
+    assert "tier_4_full_bugscout" in results

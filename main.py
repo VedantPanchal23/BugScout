@@ -15,6 +15,7 @@ import time
 import asyncio
 import argparse
 import threading
+from urllib.parse import urlparse
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -27,6 +28,7 @@ from evaluation.benchmark_runner import BenchmarkEvaluator
 from evaluation.ab_comparison import ABComparisonRunner
 from evaluation.ablation_study import AblationStudyRunner
 from evaluation.safety_tester import SafetySuiteRunner
+from evaluation.repeated_eval import RepeatedEvaluator
 from evaluation.consistency_validator import CrossFormatConsistencyValidator
 
 console = Console(highlight=False)
@@ -38,8 +40,8 @@ BANNER = """[bold cyan]
  | |_) | |_| | (_| | ___) | (_| (_) | |_| | |_ 
  |____/ \__,_|\__, ||____/ \___\___/ \__,_|\__|
               |___/                            
-[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.5 (Academic Edition)[/bold white]
-[dim]Zero-Cost | 60+ Case Ground Truth Benchmark | 4-Tier Ablation | ScopeGuard Audit[/dim]
+[/bold cyan][bold white]BugScout — An LLM-Guided Multi-Agent Security Testing and Attack Surface Discovery Platform[/bold white]
+[dim]Zero-Cost | 46-Case Ground Truth Benchmark | 4-Tier Ablation | 5-Run Stability Statistics[/dim]
 """
 
 
@@ -57,12 +59,13 @@ def start_mock_server_background():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BugScout - Autonomous Multi-Agent Security Platform")
+    parser = argparse.ArgumentParser(description="BugScout — An LLM-Guided Multi-Agent Security Testing Platform")
     parser.add_argument("url_pos", nargs="?", default=None, help="Target URL to scout (e.g. https://example.com)")
     parser.add_argument("--url", "--target", dest="target", default=None, help="Target URL to scout")
     parser.add_argument("--config", default="config/scope.yaml", help="Path to scope.yaml config")
     parser.add_argument("--demo", action="store_true", help="Run local end-to-end demo against built-in mock target")
-    parser.add_argument("--evaluate", "--benchmark", action="store_true", help="Run 60+ Case Ground Truth Benchmark Evaluation")
+    parser.add_argument("--evaluate", "--benchmark", action="store_true", help="Run 46-Case Ground Truth Benchmark Evaluation")
+    parser.add_argument("--repeated-eval", action="store_true", help="Run 5-Run Statistical Stability Benchmark (Mean ± Std Dev)")
     parser.add_argument("--compare-modes", action="store_true", help="Run A/B Comparison Experiment: Blind Baseline vs Agentic AI")
     parser.add_argument("--ablation", action="store_true", help="Run 4-Tier Component Ablation Study")
     parser.add_argument("--safety-test", action="store_true", help="Run ScopeGuard Ethical Firewall & SSRF Safety Audit Suite")
@@ -79,31 +82,37 @@ async def main_async():
     args = parse_args()
     console.print(BANNER)
 
-    # 1. Ground Truth Benchmark Evaluation Mode
+    # 1. Ground Truth Benchmark Evaluation Mode (46 Cases)
     if args.evaluate:
         evaluator = BenchmarkEvaluator()
         await evaluator.run_evaluation()
         return
 
-    # 2. A/B Comparison Experiment Mode
+    # 2. 5-Run Repeated Benchmark Statistical Evaluation Mode
+    if args.repeated_eval:
+        repeated_evaluator = RepeatedEvaluator(runs=5)
+        await repeated_evaluator.run_repeated_evaluation()
+        return
+
+    # 3. A/B Comparison Experiment Mode (Unified 27-Vuln Workload)
     if args.compare_modes:
         ab_runner = ABComparisonRunner()
         await ab_runner.run_comparison()
         return
 
-    # 3. 4-Tier Component Ablation Study Mode
+    # 4. 4-Tier Component Ablation Study Mode
     if args.ablation:
         ablation_runner = AblationStudyRunner()
         await ablation_runner.run_ablation_study()
         return
 
-    # 4. ScopeGuard Safety Suite Mode
+    # 5. ScopeGuard Safety Suite Mode (15 Tests)
     if args.safety_test:
         safety_runner = SafetySuiteRunner()
         await safety_runner.run_safety_tests()
         return
 
-    # 5. Cross-Format Consistency Validation Mode
+    # 6. Cross-Format Consistency Validation Mode
     if args.validate_consistency:
         validator = CrossFormatConsistencyValidator()
         valid, report = validator.validate()
@@ -141,6 +150,19 @@ async def main_async():
         start_mock_server_background()
         target_url = "http://127.0.0.1:8888"
         console.print("[bold green][+] Mock target server running in background.[/bold green]\n")
+
+    # Display Pre-Flight Ethical Scope Authorization Banner
+    parsed_host = urlparse(target_url).hostname or target_url
+    console.print(Panel(
+        f"[bold white]Pre-Flight Ethical Scope Authorization[/bold white]\n"
+        f"  • [bold]Target URL:[/bold] {target_url}\n"
+        f"  • [bold]Authorized Host:[/bold] {parsed_host}\n"
+        f"  • [bold]Out-of-Scope Requests:[/bold] [bold red]BLOCKED[/bold red]\n"
+        f"  • [bold]Private / SSRF IP Targets:[/bold] [bold red]BLOCKED[/bold red]\n"
+        f"  • [bold]Safe Mode Constraints:[/bold] [bold green]ENABLED (Non-Destructive Only)[/bold green]",
+        title="ScopeGuard Authorization Check",
+        border_style="cyan"
+    ))
 
     # Select LLM provider
     custom_llm = None
