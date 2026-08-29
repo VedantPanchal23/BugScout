@@ -17,6 +17,7 @@ import argparse
 import threading
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt
 
 from core.pipeline import BugScoutPipeline
 from core.scope_guard import ScopeViolationError
@@ -32,7 +33,7 @@ BANNER = """[bold cyan]
  |____/ \__,_|\__, ||____/ \___\___/ \__,_|\__|
               |___/                            
 [/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.0[/bold white]
-[dim]Zero-Cost | Ethical Boundary Enforcement | SARIF 2.1.0 | WAF Resilient[/dim]
+[dim]Zero-Cost | Ethical Boundary Enforcement | SARIF 2.1.0 | Live URL Scanner[/dim]
 """
 
 
@@ -51,8 +52,9 @@ def start_mock_server_background():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="BugScout - Autonomous Bug Bounty Scout Platform")
+    parser.add_argument("url_pos", nargs="?", default=None, help="Target URL to scout (e.g. https://example.com)")
+    parser.add_argument("--url", "--target", dest="target", default=None, help="Target URL to scout")
     parser.add_argument("--config", default="config/scope.yaml", help="Path to scope.yaml config")
-    parser.add_argument("--target", default=None, help="Override target URL in scope")
     parser.add_argument("--demo", action="store_true", help="Run local end-to-end demo against built-in mock target")
     parser.add_argument("--iterations", type=int, default=2, help="Max agentic feedback loop iterations")
     parser.add_argument("--llm", default="auto", choices=["auto", "groq", "gemini", "hf", "heuristic"], help="LLM backend selection")
@@ -65,9 +67,24 @@ async def main_async():
     args = parse_args()
     console.print(BANNER)
 
-    if args.demo:
-        console.print("[bold yellow][*] Demo Mode Activated:[/bold yellow] Initializing built-in vulnerable test target at [cyan]http://127.0.0.1:8888[/cyan]...")
+    target_url = args.target or args.url_pos
+
+    # Interactive prompt if neither URL nor --demo was provided
+    if not target_url and not args.demo:
+        console.print("[bold yellow][?] No target URL specified via CLI arguments.[/bold yellow]")
+        user_input = Prompt.ask(
+            "[bold cyan]Enter target URL to scout[/bold cyan] [dim](or press Enter for built-in demo target)[/dim]",
+            default="demo"
+        )
+        if user_input.strip().lower() == "demo" or not user_input.strip():
+            args.demo = True
+        else:
+            target_url = user_input.strip()
+
+    if args.demo and not target_url:
+        console.print("[bold yellow][*] Demo Mode Activated:[/bold yellow] Initializing built-in test target at [cyan]http://127.0.0.1:8888[/cyan]...")
         start_mock_server_background()
+        target_url = "http://127.0.0.1:8888"
         console.print("[bold green][+] Mock target server running in background.[/bold green]\n")
 
     # Select LLM provider
@@ -96,14 +113,12 @@ async def main_async():
     try:
         pipeline = BugScoutPipeline(
             config_path=args.config,
+            target_override=target_url,
             custom_llm=custom_llm,
             max_iterations=args.iterations,
             resume=args.resume,
             checkpoint_path=args.checkpoint
         )
-        if args.target:
-            pipeline.context.target = args.target
-            pipeline.scope_config.target = args.target
 
         await pipeline.run()
 
