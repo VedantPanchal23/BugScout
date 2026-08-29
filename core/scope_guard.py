@@ -167,6 +167,18 @@ class ScopeGuard:
 
         return True, None
 
+    def validate_redirect(self, original_url: str, redirect_target: str) -> Tuple[bool, Optional[str]]:
+        """
+        Validate whether following an HTTP 301/302/307/308 redirect location
+        remains strictly within in-scope boundaries. Blocks cross-domain escapes.
+        """
+        from urllib.parse import urljoin
+        resolved_url = urljoin(original_url, redirect_target)
+        valid, reason = self.validate_url(resolved_url)
+        if not valid:
+            return False, f"Redirect Escape Blocked: Destination '{resolved_url}' violates scope: {reason}"
+        return True, None
+
     def validate_payload(self, payload: str, test_type: Optional[str] = None) -> Tuple[bool, Optional[str]]:
         """Validate whether a payload or test type is permitted."""
         if test_type and test_type.lower() in [t.lower() for t in self.config.excluded_test_types]:

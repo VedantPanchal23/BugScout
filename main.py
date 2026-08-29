@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import sys
@@ -67,6 +67,7 @@ def parse_args():
     parser.add_argument("--evaluate", "--benchmark", action="store_true", help="Run 46-Case Ground Truth Benchmark Evaluation")
     parser.add_argument("--repeated-eval", action="store_true", help="Run 5-Run Statistical Stability Benchmark (Mean ± Std Dev)")
     parser.add_argument("--compare-modes", action="store_true", help="Run A/B Comparison Experiment: Blind Baseline vs Agentic AI")
+    parser.add_argument("--budget-curve", action="store_true", help="Run Cost-Recall Pareto Frontier Curve Experiment")
     parser.add_argument("--ablation", action="store_true", help="Run 4-Tier Component Ablation Study")
     parser.add_argument("--safety-test", action="store_true", help="Run ScopeGuard Ethical Firewall & SSRF Safety Audit Suite")
     parser.add_argument("--trace", action="store_true", help="Display full explainable agent decision trail and audit log")
@@ -98,6 +99,13 @@ async def main_async():
     if args.compare_modes:
         ab_runner = ABComparisonRunner()
         await ab_runner.run_comparison()
+        return
+
+    # 4. Cost-Recall Pareto Frontier Experiment Mode
+    if args.budget_curve:
+        from evaluation.budget_curve import BudgetCurveEvaluator
+        budget_runner = BudgetCurveEvaluator()
+        await budget_runner.run_budget_curve()
         return
 
     # 4. 4-Tier Component Ablation Study Mode
