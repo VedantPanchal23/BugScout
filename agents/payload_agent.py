@@ -50,19 +50,21 @@ class PayloadAgent(BaseAgent):
                 loaded[key] = []
         return loaded
 
-    async def run(self) -> None:
-        self.log(f"Beginning safe payload testing for {len(self.context.hypothesis_queue)} hypotheses...")
+    def _create_client(self) -> httpx.AsyncClient:
         custom_headers = dict(self.context.scope.custom_headers)
         custom_headers.setdefault("User-Agent", "BugScout-Autonomous-Agent/2.0 (Ethical Security Scout)")
-
-        async with httpx.AsyncClient(
+        return httpx.AsyncClient(
             timeout=self.context.scope.timeout_seconds,
             verify=self.context.scope.verify_ssl,
             follow_redirects=False,
             trust_env=False,
             headers=custom_headers,
             cookies=dict(self.context.scope.session_cookies)
-        ) as client:
+        )
+
+    async def run(self) -> None:
+        self.log(f"Beginning safe payload testing for {len(self.context.hypothesis_queue)} hypotheses...")
+        async with self._create_client() as client:
             for hypothesis in self.context.hypothesis_queue:
                 await self._test_hypothesis(client, hypothesis)
 

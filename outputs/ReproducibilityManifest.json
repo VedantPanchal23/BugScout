@@ -3,10 +3,10 @@
     "name": "46-Case Ground Truth Benchmark Evaluation",
     "id": "primary_46_case_benchmark",
     "benchmark_version": "v2.1",
-    "git_commit": "dcc5a453f10054ec59c40d1db4f7c3eb6e3f743f",
+    "git_commit": "1d7ad9c9cf15a60a9eb8fd2f869605b2ee8c81a2",
     "python_version": "3.13.5",
     "os_platform": "win32",
-    "timestamp_utc": "2026-08-29T14:28:39.343246+00:00",
+    "timestamp_utc": "2026-08-29T14:51:50.763166+00:00",
     "random_seed": 42,
     "model_configuration": {
       "model_name": "groq/qwen3.8-27b (or heuristic fallback)",

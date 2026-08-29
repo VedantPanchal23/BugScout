@@ -1,13 +1,13 @@
-# BugScout - Final Release Candidate Report
+# BugScout v3.6 — Final Release Candidate Report
 
 ## 1. Executive Summary
 
 BugScout is an autonomous, LLM-guided multi-agent security testing and attack-surface discovery platform designed to evaluate whether semantic threat reasoning can reduce scan traffic while maintaining high vulnerability discovery yield.
 
-This document serves as the formal, authoritative release candidate report for BugScout v3.5, validating:
-- 42/42 automated unit, integration, and safety tests passing with 0 warnings.
+This document serves as the formal, authoritative release report for BugScout v3.6, validating:
+- **61/61 automated unit, integration, transport security, and leakage tests passing with 0 warnings in 33.77s**.
 - Complete 7-stage deterministic agent loop execution.
-- ScopeGuard deterministic application-layer ethical boundary defense across 16 adversarial threat vectors.
+- ScopeGuard deterministic application-layer boundary defense across 16 adversarial threat vectors.
 - Mathematical consistency across all benchmark, A/B comparison, and repeated stability experiments.
 - Complete absence of scanner-side ground-truth leakage or hardcoded route memorization.
 
@@ -29,24 +29,25 @@ Untested:     0 features
 ## 3. Test & Quality Suite Results
 
 ```text
-Total Test Suites: 20
-Total Tests:       42
-Passed:            42 (100%)
+Total Test Suites: 22
+Total Tests:       61
+Passed:            61 (100%)
 Failed:             0
 Skipped:            0
 Warnings:           0 (Clean pytest execution with zero warnings)
-Execution Time:    34.31s
+Execution Time:    33.77s
 ```
 
 ---
 
-## 4. Security Boundary & Red Team Verification
+## 4. Security Boundary & Transport Security Verification
 
 ```text
 ScopeGuard:                   PASS (All outbound HTTP requests pass through ScopeGuard validation)
 LLM Boundary:                 PASS (LLM has zero network authority; generates structured hypotheses only)
+Transport Pre-Connect Check:  PASS (Application-layer pre-connect getaddrinfo destination validation)
 Redirect Boundary:            PASS (follow_redirects=False; all 3xx location destinations pass validate_redirect)
-DNS Validation:               PASS (Application-layer pre-connect getaddrinfo destination validation)
+Proxy Isolation:              PASS (trust_env=False set across all internal httpx.AsyncClient instances)
 Credential Redaction:         PASS (Bearer tokens, Authorization headers, and cookies redacted with [REDACTED])
 Destructive Probe Protection: PASS (Destructive keywords blocked; all active payloads use safe probe markers)
 Resource Limits:              PASS (Hard ceilings on crawl depth, request budget, concurrency, and timeout)
@@ -56,13 +57,13 @@ Resource Limits:              PASS (Hard ceilings on crawl depth, request budget
 
 ## 5. Authoritative Experiment Table
 
-| Experiment | Cases | TP | TN | FP | FN | Precision | Recall | F1 | Specificity | Requests | Duration | Status |
+| Experiment | Cases | TP | TN | FP | FN | Precision | Recall | F1 | Specificity | Requests | Duration | Protocol & Status |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Primary Ground-Truth Benchmark** | 46 | 19 | 18 | 1 | 8 | 95.00% | 70.37% | 80.85% | 94.74% | 316 | 0.96s | Deterministic |
-| **A/B Single-Pass Baseline (Mode A)** | 46 | 22 | 16 | 3 | 5 | 88.00% | 81.48% | 84.62% | 84.21% | 428 | 3.18s | Heuristic Baseline |
-| **A/B Single-Pass BugScout (Mode B)** | 46 | 19 | 18 | 1 | 8 | 95.00% | 70.37% | 80.85% | 94.74% | 153 | 0.98s | -64.25% Traffic (2.42x Yield) |
-| **5-Run Repeated Stability Evaluation** | 46 | 19 | 18 | 1 | 8 | 95.00% ± 0.0% | 70.37% ± 0.0% | 80.85% ± 0.0% | 94.74% ± 0.0% | 316.0 ± 0.0 | 0.88s ± 0.07s | Deterministic Classification |
-| **Preliminary Zero-Shot Hidden Benchmark** | 6 | 3 | 2 | 0 | 1 | 100.00% | 75.00% | 85.71% | 100.00% | 50 | 0.56s | Randomized Endpoints |
+| **Primary Ground-Truth Benchmark** | 46 | 19 | 18 | 1 | 8 | 95.00% | 70.37% | 80.85% | 94.74% | 316 | 0.81s | 2-Iteration Autonomous Mission |
+| **A/B Single-Pass Baseline (Mode A)** | 46 | 22 | 16 | 3 | 5 | 88.00% | 81.48% | 84.62% | 84.21% | 428 | 3.18s | Deterministic Blind Baseline |
+| **A/B Single-Pass BugScout (Mode B)** | 46 | 19 | 18 | 1 | 8 | 95.00% | 70.37% | 80.85% | 94.74% | 153 | 0.74s | -64.25% Traffic (2.42x Yield) |
+| **5-Run Repeated Stability Evaluation** | 46 | 19 | 18 | 1 | 8 | 95.00% ± 0.0% | 70.37% ± 0.0% | 80.85% ± 0.0% | 94.74% ± 0.0% | 316.0 ± 0.0 | 0.78s ± 0.05s | Deterministic Classification |
+| **Preliminary Zero-Shot Hidden Benchmark** | 6 | 3 | 2 | 0 | 1 | 100.00% | 75.00% | 85.71% | 100.00% | 50 | 0.54s | Ephemeral Randomized Endpoints |
 
 ---
 
@@ -88,17 +89,31 @@ The repository produces strictly defined request counts based on the experimenta
 ## 8. Exact Reproduction Commands
 
 ```bash
-# Clean execution of entire test suite
+# 1. Run Complete 61-Test Automated Suite (33.77s, 0 Warnings, 100% Pass)
 pytest -v
 
-# Run all CLI experiment pipelines
+# 2. Run Ground-Truth Primary Benchmark (46 cases)
 python main.py --evaluate
+
+# 3. Run A/B Single-Pass Baseline Comparison (-64.25% traffic reduction, 2.42x yield)
 python main.py --compare-modes
+
+# 4. Run Pareto Budget Curve & Frontier Optimization Analysis
 python main.py --budget-curve
+
+# 5. Run 4-Tier Component Ablation Study
 python main.py --ablation
+
+# 6. Run 5-Run Statistical Stability Evaluation
 python main.py --repeated-eval
+
+# 7. Run Zero-Shot Hidden Generalization Benchmark
 python main.py --hidden-eval
+
+# 8. Run ScopeGuard Ethical Firewall Audit (16 attack vectors intercepted)
 python main.py --safety-test
+
+# 9. Run Autonomous Pipeline Trace & Multi-Format Report Synthesis
 python main.py --trace --demo
 ```
 

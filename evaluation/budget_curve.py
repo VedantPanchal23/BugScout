@@ -15,6 +15,28 @@ from benchmark_lab.server import benchmark_app
 from evaluation.benchmark_runner import BenchmarkEvaluator
 
 
+def calculate_pareto_frontier(points: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Computes Pareto non-dominated frontier coordinates given points with 'requests' (or 'actual_requests')
+    and 'recall' (or 'recall_percent').
+    Point j dominates point i if cost_j <= cost_i AND recall_j >= recall_i with strict inequality.
+    """
+    frontier = []
+    for pt in points:
+        x_i = pt.get("requests", pt.get("actual_requests", 0))
+        y_i = pt.get("recall", pt.get("recall_percent", 0.0))
+        is_dominated = False
+        for other in points:
+            x_j = other.get("requests", other.get("actual_requests", 0))
+            y_j = other.get("recall", other.get("recall_percent", 0.0))
+            if (x_j <= x_i and y_j >= y_i) and (x_j < x_i or y_j > y_i):
+                is_dominated = True
+                break
+        if not is_dominated:
+            frontier.append(pt)
+    return frontier
+
+
 class BudgetCurveEvaluator:
     """
     Evaluates vulnerability detection recall across varying HTTP request budgets
@@ -28,6 +50,11 @@ class BudgetCurveEvaluator:
         self.console = Console(highlight=False)
 
     def start_lab_server(self):
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", self.port)) == 0:
+                return None  # Server already listening on port
+
         config = uvicorn.Config(benchmark_app, host="127.0.0.1", port=self.port, log_level="error")
         server = uvicorn.Server(config)
         thread = threading.Thread(target=server.run, daemon=True)
