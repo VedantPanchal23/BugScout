@@ -1,10 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import ipaddress
+import posixpath
 import re
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from typing import Tuple, Optional
 
 from core.mission_context import ScopeConfig
@@ -23,10 +24,13 @@ class ScopeGuard:
 
     BLOCKED_PAYLOAD_KEYWORDS = [
         "benchmark(", "sleep(20", "pg_sleep(20", "shutdown", "drop database",
-        "drop table", "truncate", "rm -rf", "format c:", "mkfs"
+        "drop table", "truncate", "rm -rf", "format c:", "mkfs", ":(){ :|:& };:"
     ]
 
-    CLOUD_METADATA_IPS = ["169.254.169.254", "metadata.google.internal", "169.254.169.123"]
+    CLOUD_METADATA_IPS = [
+        "169.254.169.254", "metadata.google.internal", "169.254.169.123",
+        "metadata.aws.internal", "100.100.100.200"
+    ]
 
     def __init__(self, config: ScopeConfig):
         self.config = config
@@ -37,15 +41,41 @@ class ScopeGuard:
         self.lock = asyncio.Lock()
         self.request_timestamps: list[float] = []
 
-    def is_private_ip(self, hostname: str) -> bool:
-        """Check if hostname resolves to a private/loopback IP address."""
-        if hostname.lower() in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
+    def is_private_or_restricted_ip(self, host: str) -> bool:
+        """Check if host resolves to a private, loopback, link-local, or cloud metadata IP."""
+        # Strip port if present
+        host_clean = host.split(":")[0].strip("[]")
+
+        if host_clean.lower() in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
             return True
+
+        if host_clean.lower() in self.CLOUD_METADATA_IPS or "metadata" in host_clean.lower():
+            return True
+
         try:
-            ip = ipaddress.ip_address(hostname)
-            return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            ip = ipaddress.ip_address(host_clean)
+            return (
+                ip.is_private or
+                ip.is_loopback or
+                ip.is_link_local or
+                ip.is_reserved or
+                ip.is_multicast
+            )
         except ValueError:
             return False
+
+    def normalize_path(self, raw_path: str) -> str:
+        """Normalize URL path to prevent directory traversal and double-slash bypasses."""
+        if not raw_path:
+            return "/"
+        unquoted = unquote(raw_path)
+        collapsed = re.sub(r"/+", "/", unquoted)
+        normalized = posixpath.normpath(collapsed)
+        if not normalized.startswith("/"):
+            normalized = "/" + normalized
+        if unquoted.endswith("/") and not normalized.endswith("/"):
+            normalized += "/"
+        return normalized
 
     def validate_url(self, url: str) -> Tuple[bool, Optional[str]]:
         """Validate whether a target URL complies with ethical boundaries."""
@@ -59,57 +89,63 @@ class ScopeGuard:
 
         hostname = parsed.hostname
         if not hostname:
-            return False, "Missing hostname"
+            return False, "Missing hostname in URL"
 
-        # Check Cloud Metadata protection
+        # Check Cloud Metadata protection (Absolute Hard Block)
         if hostname.lower() in self.CLOUD_METADATA_IPS or "metadata" in hostname.lower():
             return False, f"Hard blocked cloud metadata target: {hostname}"
 
         # Private IP protection
-        if self.is_private_ip(hostname):
+        if self.is_private_or_restricted_ip(hostname):
             if not self.config.allow_localhost_for_testing:
                 return False, f"Private / Localhost IP address blocked by default: {hostname}"
 
-        # Allowed host matching
+        # Allowed host matching (supports subdomains *.domain.com and host:port)
         if self.config.allowed_hosts:
             host_match = False
             for allowed in self.config.allowed_hosts:
-                if allowed.startswith("*."):
-                    domain_suffix = allowed[2:]
-                    if hostname == domain_suffix or hostname.endswith("." + domain_suffix):
+                allowed_clean = allowed.split(":")[0].lower()
+                current_clean = hostname.lower()
+
+                if allowed_clean.startswith("*."):
+                    domain_suffix = allowed_clean[2:]
+                    if current_clean == domain_suffix or current_clean.endswith("." + domain_suffix):
                         host_match = True
                         break
-                elif hostname.lower() == allowed.lower():
+                elif current_clean == allowed_clean:
                     host_match = True
                     break
             if not host_match:
                 return False, f"Host '{hostname}' is not in allowed_hosts {self.config.allowed_hosts}"
 
-        # Allowed paths matching
-        path = parsed.path or "/"
+        # Allowed paths matching with path normalization
+        normalized_path = self.normalize_path(parsed.path)
         if self.config.allowed_paths:
             path_match = False
             for pattern in self.config.allowed_paths:
-                if pattern == "/*" or pattern == "*":
-                    path_match = True
-                    break
+                if pattern in ["/*", "*", "/"]:
+                    if pattern == "/" and normalized_path != "/":
+                        pass
+                    else:
+                        path_match = True
+                        break
                 if pattern.endswith("/*"):
                     prefix = pattern[:-2]
                     # Ensure prefix boundary match: /api/* matches /api/v1 but not /api-secret/
-                    if path == prefix or path.startswith(prefix + "/"):
+                    if normalized_path == prefix or normalized_path.startswith(prefix + "/"):
                         path_match = True
                         break
                 elif pattern.endswith("*"):
                     prefix = pattern[:-1]
-                    if path.startswith(prefix):
+                    if normalized_path.startswith(prefix):
                         path_match = True
                         break
                 else:
-                    if path == pattern or path.rstrip("/") == pattern.rstrip("/"):
+                    if normalized_path == pattern or normalized_path.rstrip("/") == pattern.rstrip("/"):
                         path_match = True
                         break
             if not path_match:
-                return False, f"Path '{path}' is not covered by allowed_paths {self.config.allowed_paths}"
+                return False, f"Path '{normalized_path}' is not covered by allowed_paths {self.config.allowed_paths}"
 
         return True, None
 
@@ -164,7 +200,6 @@ class ScopeGuard:
 
             # 4. Token-bucket rate limiting
             now = time.time()
-            # Retain only timestamps from the last 60 seconds
             self.request_timestamps = [ts for ts in self.request_timestamps if now - ts < 60.0]
             if len(self.request_timestamps) >= self.config.max_requests_per_minute:
                 sleep_needed = 60.0 - (now - self.request_timestamps[0]) + 0.05

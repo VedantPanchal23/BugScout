@@ -1,0 +1,3 @@
+﻿https://example.com/scout_redirect_canary
+//example.com/scout_redirect_canary
+https://attacker.com/canary

@@ -1,4 +1,4 @@
-# Virtual Environment
+﻿# Virtual Environment
 .venv/
 venv/
 ENV/
@@ -12,6 +12,7 @@ __pycache__/
 # Outputs & Reports (sensitive scan outputs)
 outputs/*.json
 outputs/*.md
+outputs/*.html
 !outputs/.gitkeep
 
 # Environment variables & secrets

@@ -18,13 +18,20 @@ allowed_paths:
   - "/sitemap.xml"
   - "/openapi.json"
   - "/static/*"
+  - "/graphql"
+  - "/redirect"
+  - "/user/*"
+  - "/settings/*"
 
 excluded_test_types:
   - "brute_force"
   - "dos"
 
 # Rate Limiting & Safety Controls
-max_requests_per_minute: 120
-max_total_requests: 300
+max_requests_per_minute: 200
+max_total_requests: 500
 max_crawl_depth: 3
 allow_localhost_for_testing: true
+verify_ssl: true
+max_retries: 2
+retry_backoff: 0.2

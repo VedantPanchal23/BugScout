@@ -1,6 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
+import re
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -25,6 +26,33 @@ class LLMProvider(ABC):
         """Name of provider."""
         pass
 
+    async def reason_endpoint_hypotheses(self, endpoint_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Reason about potential vulnerabilities given endpoint structure and parameters."""
+        prompt = (
+            f"Analyze this web endpoint for potential OWASP security vulnerabilities:\n"
+            f"URL: {endpoint_info.get('url')}\n"
+            f"Method: {endpoint_info.get('method')}\n"
+            f"Query Parameters: {endpoint_info.get('query_params')}\n"
+            f"Body Parameters: {endpoint_info.get('body_params')}\n"
+            f"Observed Headers: {endpoint_info.get('headers')}\n\n"
+            f"Return a JSON array of hypotheses with fields: "
+            f"vuln_class, target_param, confidence_score (0.0-1.0), rationale, test_plan. "
+            f"Only return valid JSON."
+        )
+        try:
+            raw_response = await self.generate(
+                prompt,
+                system_prompt="You are an autonomous senior penetration testing AI. Output only valid JSON arrays."
+            )
+            # Clean JSON formatting
+            cleaned = re.sub(r"^`(?:json)?|`$", "", raw_response.strip(), flags=re.MULTILINE).strip()
+            match = re.search(r"\[.*\]", cleaned, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+        except Exception as e:
+            logger.debug(f"LLM reasoning parse error: {e}")
+        return []
+
 
 class HeuristicSecurityEngine(LLMProvider):
     """
@@ -38,7 +66,6 @@ class HeuristicSecurityEngine(LLMProvider):
         return "Built-in Security Intelligence (Offline / Zero-Cost)"
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        # The heuristic engine provides structured domain reasoning if invoked as LLM
         return json.dumps({
             "status": "success",
             "provider": self.name,
@@ -47,12 +74,20 @@ class HeuristicSecurityEngine(LLMProvider):
 
 
 class GroqProvider(LLMProvider):
-    """Groq Free Cloud Inference API (Llama 3.3 70B / 8B)."""
+    """Groq Free Cloud Inference API with auto-model resolution."""
 
-    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile"):
+    CANDIDATE_MODELS = [
+        "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.6-27b",
+        "openai/gpt-oss-20b",
+        "llama-3.3-70b-versatile"
+    ]
+
+    def __init__(self, api_key: str, model: Optional[str] = None):
         from groq import AsyncGroq
         self.client = AsyncGroq(api_key=api_key)
-        self.model = model
+        self.model = model or "qwen/qwen3.8-27b"
 
     @property
     def name(self) -> str:
@@ -64,13 +99,30 @@ class GroqProvider(LLMProvider):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=1500,
-        )
-        return response.choices[0].message.content or ""
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=1500,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            # Fallback across candidate models
+            for alt_model in self.CANDIDATE_MODELS:
+                if alt_model != self.model:
+                    try:
+                        self.model = alt_model
+                        resp = await self.client.chat.completions.create(
+                            model=self.model,
+                            messages=messages,
+                            temperature=0.2,
+                            max_tokens=1500,
+                        )
+                        return resp.choices[0].message.content or ""
+                    except Exception:
+                        continue
+            raise e
 
 
 class GeminiProvider(LLMProvider):
@@ -98,7 +150,6 @@ class HuggingFaceProvider(LLMProvider):
     """Hugging Face Free Serverless Inference API."""
 
     def __init__(self, token: str, model: str = "meta-llama/Meta-Llama-3-8B-Instruct"):
-        import httpx
         self.token = token
         self.model = model
         self.api_url = f"https://api-inference.huggingface.co/models/{model}"

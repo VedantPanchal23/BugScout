@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
@@ -15,15 +15,17 @@ class ReconAgent(BaseAgent):
     """
     ReconAgent maps the target attack surface:
     - robots.txt & sitemap.xml parsing
-    - OpenAPI / Swagger documentation inspection
-    - Recursive HTML crawling & form extraction
-    - JavaScript endpoint regex mining
+    - OpenAPI / Swagger documentation inspection (JSON/YAML)
+    - GraphQL endpoint discovery & introspection testing
+    - SPA client-side routing and JS API regex mining
+    - Security headers audit & CORS baseline probing
     - Tech stack fingerprinting & baseline response recording
     """
 
     COMMON_SENSITIVE_PATHS = [
         "/.env", "/.git/HEAD", "/debug/config", "/actuator/health",
-        "/api-docs", "/openapi.json", "/swagger.json", "/phpinfo.php"
+        "/api-docs", "/openapi.json", "/swagger.json", "/phpinfo.php",
+        "/graphql", "/api/graphql", "/query", "/redirect", "/api/download"
     ]
 
     API_REGEX_PATTERNS = [
@@ -31,15 +33,41 @@ class ReconAgent(BaseAgent):
         r'["\'](/v[1-9]/[a-zA-Z0-9_\-\/]+(?:\?[a-zA-Z0-9_\-=&]*)?)["\']',
         r'["\'](/rest/[a-zA-Z0-9_\-\/]+(?:\?[a-zA-Z0-9_\-=&]*)?)["\']',
         r'["\'](/search(?:\?[a-zA-Z0-9_\-=&]*)?)["\']',
+        r'["\'](/graphql(?:\?[a-zA-Z0-9_\-=&]*)?)["\']',
+        r'["\'](/redirect(?:\?[a-zA-Z0-9_\-=&]*)?)["\']',
+    ]
+
+    SPA_ROUTE_PATTERNS = [
+        r'path:\s*["\'](/[a-zA-Z0-9_\-\/:]+)["\']',
+        r'route:\s*["\'](/[a-zA-Z0-9_\-\/:]+)["\']',
+        r'<Route\s+[^>]*path=["\'](/[a-zA-Z0-9_\-\/:]+)["\']',
+    ]
+
+    SECURITY_HEADER_NAMES = [
+        "content-security-policy",
+        "strict-transport-security",
+        "x-frame-options",
+        "x-content-type-options",
+        "referrer-policy",
+        "permissions-policy",
     ]
 
     async def run(self) -> None:
-        self.log(f"Starting Reconnaissance on target: {self.context.target}")
+        self.log(f"Starting Deep Reconnaissance on target: {self.context.target}")
         base_url = self.context.target.rstrip("/")
         visited_urls: Set[str] = set()
 
-        async with httpx.AsyncClient(timeout=self.context.scope.timeout_seconds, follow_redirects=True) as client:
-            # 1. Tech stack fingerprinting & baseline for root
+        headers = dict(self.context.scope.custom_headers)
+        cookies = dict(self.context.scope.session_cookies)
+
+        async with httpx.AsyncClient(
+            timeout=self.context.scope.timeout_seconds,
+            verify=self.context.scope.verify_ssl,
+            follow_redirects=True,
+            headers=headers,
+            cookies=cookies
+        ) as client:
+            # 1. Root probe, Tech stack fingerprinting, Security headers, CORS
             await self._fingerprint_and_baseline(client, base_url)
 
             # 2. Check robots.txt
@@ -51,14 +79,14 @@ class ReconAgent(BaseAgent):
             # 4. Check OpenAPI / Swagger specs
             await self._check_openapi_specs(client, base_url)
 
-            # 5. Check well-known sensitive endpoints
+            # 5. Check well-known sensitive & GraphQL endpoints
             await self._check_common_endpoints(client, base_url)
 
             # 6. Crawl web pages starting from base URL
             await self._crawl_target(client, base_url, visited_urls, depth=0)
 
         self.context.stats.total_endpoints_discovered = len(self.context.endpoint_map)
-        self.log(f"Recon completed. Discovered {len(self.context.endpoint_map)} endpoints in scope.")
+        self.log(f"Deep Recon completed. Discovered {len(self.context.endpoint_map)} endpoints in scope.")
 
     def _register_endpoint(
         self,
@@ -70,13 +98,17 @@ class ReconAgent(BaseAgent):
         status: int = None,
         snippet: str = None,
         response_time_ms: float = None,
-        tech: List[str] = None
-    ) -> None:
+        tech: List[str] = None,
+        sec_headers: Dict[str, str] = None,
+        missing_sec_headers: List[str] = None,
+        cors_headers: Dict[str, str] = None,
+        is_spa: bool = False,
+        is_graphql: bool = False,
+    ) -> Endpoint:
         parsed = urlparse(url)
         path = parsed.path or "/"
         endpoint_id = f"{method}:{path}"
 
-        # Parse query params from URL if not explicitly given
         if query_params is None:
             query_params = list(parse_qs(parsed.query).keys())
 
@@ -94,9 +126,15 @@ class ReconAgent(BaseAgent):
                 baseline_status=status,
                 baseline_body_snippet=snippet,
                 baseline_response_time_ms=response_time_ms,
+                security_headers=sec_headers or {},
+                missing_security_headers=missing_sec_headers or [],
+                cors_headers=cors_headers or {},
+                is_spa_route=is_spa,
+                is_graphql=is_graphql or ("/graphql" in path.lower()),
             )
             self.context.endpoint_map[endpoint_id] = endpoint
-            self.log(f"Discovered Endpoint [{method}] {path} (Params: {query_params or body_params or 'None'}) via {source}")
+            self.log(f"Discovered Endpoint [{method}] {path} via {source}")
+            return endpoint
         else:
             existing = self.context.endpoint_map[endpoint_id]
             for q in (query_params or []):
@@ -105,6 +143,9 @@ class ReconAgent(BaseAgent):
             for b in (body_params or []):
                 if b not in existing.body_params:
                     existing.body_params.append(b)
+            if is_graphql:
+                existing.is_graphql = True
+            return existing
 
     async def _fingerprint_and_baseline(self, client: httpx.AsyncClient, base_url: str) -> None:
         allowed, reason = await self.scope_guard.acquire_permission(base_url)
@@ -113,8 +154,10 @@ class ReconAgent(BaseAgent):
             return
 
         try:
-            resp = await client.get(base_url)
+            # Baseline probe with CORS origin test
+            resp = await client.get(base_url, headers={"Origin": "https://evil-attacker.com"})
             self.context.stats.total_requests_sent += 1
+
             tech = []
             for header in ["Server", "X-Powered-By", "X-AspNet-Version", "X-Generator"]:
                 if header in resp.headers:
@@ -125,6 +168,19 @@ class ReconAgent(BaseAgent):
             if meta_gen and meta_gen.get("content"):
                 tech.append(f"Generator: {meta_gen['content']}")
 
+            # Inspect security headers
+            sec_headers = {}
+            missing_sec_headers = []
+            resp_lower_headers = {k.lower(): v for k, v in resp.headers.items()}
+            for sec_name in self.SECURITY_HEADER_NAMES:
+                if sec_name in resp_lower_headers:
+                    sec_headers[sec_name] = resp_lower_headers[sec_name]
+                else:
+                    missing_sec_headers.append(sec_name)
+
+            # CORS headers
+            cors_headers = {k: v for k, v in resp.headers.items() if k.lower().startswith("access-control-")}
+
             self._register_endpoint(
                 url=base_url,
                 method="GET",
@@ -132,7 +188,10 @@ class ReconAgent(BaseAgent):
                 status=resp.status_code,
                 snippet=resp.text[:200],
                 response_time_ms=resp.elapsed.total_seconds() * 1000,
-                tech=tech
+                tech=tech,
+                sec_headers=sec_headers,
+                missing_sec_headers=missing_sec_headers,
+                cors_headers=cors_headers,
             )
         except Exception as e:
             self.log(f"Error inspecting root endpoint: {e}", level="WARNING")
@@ -191,7 +250,7 @@ class ReconAgent(BaseAgent):
                     try:
                         data = resp.json()
                         if "paths" in data:
-                            self.log(f"Discovered OpenAPI / Swagger schema at {path}!")
+                            self.log(f"Discovered OpenAPI schema at {path}!")
                             for api_path, methods in data["paths"].items():
                                 for http_method, details in methods.items():
                                     if http_method.upper() in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
@@ -215,16 +274,20 @@ class ReconAgent(BaseAgent):
             if not allowed:
                 continue
             try:
-                resp = await client.get(url)
+                resp = await client.get(url, headers={"Origin": "https://evil-attacker.com"})
                 self.context.stats.total_requests_sent += 1
-                if resp.status_code in [200, 301, 302, 401, 403]:
+                if resp.status_code in [200, 301, 302, 401, 403, 405]:
+                    cors_headers = {k: v for k, v in resp.headers.items() if k.lower().startswith("access-control-")}
+                    is_graphql = "/graphql" in path.lower() or "/query" in path.lower()
                     self._register_endpoint(
                         url,
                         method="GET",
                         source="sensitive_path_probe",
                         status=resp.status_code,
                         snippet=resp.text[:200],
-                        response_time_ms=resp.elapsed.total_seconds() * 1000
+                        response_time_ms=resp.elapsed.total_seconds() * 1000,
+                        cors_headers=cors_headers,
+                        is_graphql=is_graphql
                     )
             except Exception:
                 pass
@@ -249,10 +312,8 @@ class ReconAgent(BaseAgent):
             # Extract Links <a href>
             for a in soup.find_all("a", href=True):
                 link = urljoin(current_url, a["href"])
-                parsed_link = urlparse(link)
-                # Ensure within scope
                 valid_url, _ = self.scope_guard.validate_url(link)
-                if valid_link := valid_url:
+                if valid_url:
                     self._register_endpoint(link, method="GET", source="crawler_link")
                     if link not in visited and depth + 1 <= self.context.scope.max_crawl_depth:
                         await self._crawl_target(client, link, visited, depth + 1)
@@ -294,9 +355,20 @@ class ReconAgent(BaseAgent):
             pass
 
     def _extract_endpoints_from_text(self, text: str, source_url: str) -> None:
+        # API Routes
         for pattern in self.API_REGEX_PATTERNS:
             for match in re.findall(pattern, text):
                 full_url = urljoin(source_url, match)
                 valid, _ = self.scope_guard.validate_url(full_url)
                 if valid:
                     self._register_endpoint(full_url, method="GET", source="js_regex_mining")
+
+        # Client-side SPA routes
+        for spa_pat in self.SPA_ROUTE_PATTERNS:
+            for match in re.findall(spa_pat, text):
+                # Clean route parameters like /user/:id -> /user/1
+                cleaned_path = re.sub(r':([a-zA-Z0-9_]+)', '1', match)
+                full_url = urljoin(source_url, cleaned_path)
+                valid, _ = self.scope_guard.validate_url(full_url)
+                if valid:
+                    self._register_endpoint(full_url, method="GET", source="spa_route_miner", is_spa=True)

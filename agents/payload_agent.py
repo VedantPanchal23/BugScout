@@ -1,9 +1,10 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
+import json
 import time
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import httpx
 
@@ -14,10 +15,11 @@ from core.mission_context import Hypothesis, TestResult, VulnClass
 class PayloadAgent(BaseAgent):
     """
     PayloadAgent crafts and safely fires contextual test payloads:
-    - Loads curated non-destructive probe payloads
+    - Loads curated non-destructive probe payloads for 10+ vulnerability classes
     - Contextually mutates parameters across query strings, form fields, and headers
-    - Strictly routes all requests through ScopeGuard validation and rate limiting
-    - Records comprehensive response metrics (status, body snippet, response time)
+    - Replays user session cookies and custom headers
+    - Routes all outbound requests through ScopeGuard validation and rate limiting
+    - Records comprehensive response metrics (status, headers, body snippet, latency)
     """
 
     def __init__(self, *args, **kwargs):
@@ -33,6 +35,10 @@ class PayloadAgent(BaseAgent):
             "ssrf": "ssrf.txt",
             "auth": "auth.txt",
             "misconfig": "misconfig.txt",
+            "cors": "cors.txt",
+            "graphql": "graphql.txt",
+            "redirect": "redirect.txt",
+            "traversal": "traversal.txt",
         }
         loaded = {}
         for key, fname in dict_map.items():
@@ -46,10 +52,15 @@ class PayloadAgent(BaseAgent):
 
     async def run(self) -> None:
         self.log(f"Beginning safe payload testing for {len(self.context.hypothesis_queue)} hypotheses...")
+        custom_headers = dict(self.context.scope.custom_headers)
+        custom_headers.setdefault("User-Agent", "BugScout-Autonomous-Agent/2.0 (Ethical Security Scout)")
+
         async with httpx.AsyncClient(
             timeout=self.context.scope.timeout_seconds,
+            verify=self.context.scope.verify_ssl,
             follow_redirects=False,
-            headers={"User-Agent": "BugScout-Autonomous-Agent/1.0 (Ethical Security Scout)"}
+            headers=custom_headers,
+            cookies=dict(self.context.scope.session_cookies)
         ) as client:
             for hypothesis in self.context.hypothesis_queue:
                 await self._test_hypothesis(client, hypothesis)
@@ -77,7 +88,12 @@ class PayloadAgent(BaseAgent):
                 if req_method.upper() == "GET":
                     resp = await client.get(req_url, headers=req_headers)
                 elif req_method.upper() == "POST":
-                    resp = await client.post(req_url, headers=req_headers, json=req_body if isinstance(req_body, dict) else None, data=req_body if isinstance(req_body, str) else None)
+                    if isinstance(req_body, dict):
+                        resp = await client.post(req_url, headers=req_headers, json=req_body)
+                    elif isinstance(req_body, str):
+                        resp = await client.post(req_url, headers=req_headers, content=req_body)
+                    else:
+                        resp = await client.post(req_url, headers=req_headers)
                 elif req_method.upper() == "PUT":
                     resp = await client.put(req_url, headers=req_headers, json=req_body if isinstance(req_body, dict) else None)
                 elif req_method.upper() == "DELETE":
@@ -99,13 +115,13 @@ class PayloadAgent(BaseAgent):
                     request_headers=req_headers,
                     response_status=resp.status_code,
                     response_headers=dict(resp.headers),
-                    response_body_snippet=resp.text[:1000],
+                    response_body_snippet=resp.text[:1500],
                     response_time_ms=elapsed_ms,
                 )
                 self.context.test_results.append(test_result)
 
             except Exception as e:
-                self.log(f"Network error probing {req_url}: {e}", level="DEBUG")
+                self.log(f"Network probe error on {req_url}: {e}", level="DEBUG")
 
     def _select_payloads_for_hypothesis(self, h: Hypothesis) -> List[str]:
         if h.vuln_class == VulnClass.SQLI:
@@ -118,16 +134,25 @@ class PayloadAgent(BaseAgent):
             return self.payloads.get("ssrf", ["http://127.0.0.1:80/", "http://example.com/canary_probe"])[:2]
         elif h.vuln_class == VulnClass.BROKEN_AUTH:
             return self.payloads.get("auth", ["Bearer null", "admin", "role=admin"])[:3]
-        elif h.vuln_class in [VulnClass.MISCONFIG, VulnClass.SENSITIVE_DATA]:
+        elif h.vuln_class == VulnClass.CORS_MISCONFIG:
+            return self.payloads.get("cors", ["https://evil-attacker.com"])[:2]
+        elif h.vuln_class == VulnClass.GRAPHQL_INTROSPECTION:
+            return self.payloads.get("graphql", ['{"query": "{ __schema { types { name } } }"}'])[:1]
+        elif h.vuln_class == VulnClass.OPEN_REDIRECT:
+            return self.payloads.get("redirect", ["https://example.com/scout_redirect_canary"])[:2]
+        elif h.vuln_class == VulnClass.PATH_TRAVERSAL:
+            return self.payloads.get("traversal", ["../../../../etc/passwd", "..\\..\\win.ini"])[:3]
+        elif h.vuln_class in [VulnClass.MISCONFIG, VulnClass.SENSITIVE_DATA, VulnClass.SECURITY_HEADERS]:
             return [""]
         return ["test_probe"]
 
-    def _build_request(self, h: Hypothesis, payload: str) -> tuple[str, str, dict, Any]:
+    def _build_request(self, h: Hypothesis, payload: str) -> Tuple[str, str, Dict[str, str], Any]:
         url = h.url
         method = h.method.upper()
         headers = {}
         body = None
 
+        # 1. Parameter injection
         if h.target_param:
             parsed = urlparse(url)
             qs = parse_qs(parsed.query)
@@ -141,12 +166,27 @@ class PayloadAgent(BaseAgent):
                 headers["Content-Type"] = "application/json"
                 return url, method, headers, body
 
-        # If no target param, e.g. path misconfig or auth probe
+        # 2. CORS Probing
+        if h.vuln_class == VulnClass.CORS_MISCONFIG and payload:
+            headers["Origin"] = payload
+            headers["Access-Control-Request-Method"] = "GET"
+            return url, method, headers, body
+
+        # 3. GraphQL Introspection
+        if h.vuln_class == VulnClass.GRAPHQL_INTROSPECTION:
+            method = "POST"
+            headers["Content-Type"] = "application/json"
+            try:
+                body = json.loads(payload)
+            except Exception:
+                body = {"query": "{ __schema { types { name } } }"}
+            return url, method, headers, body
+
+        # 4. Auth header tampering
         if h.vuln_class == VulnClass.BROKEN_AUTH:
             if "Bearer" in payload:
                 headers["Authorization"] = payload
             elif "=" in payload:
-                # Add query or body param
                 k, v = payload.split("=", 1)
                 parsed = urlparse(url)
                 qs = parse_qs(parsed.query)

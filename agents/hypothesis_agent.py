@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import uuid
 from typing import List, Dict, Any
@@ -10,9 +10,9 @@ class HypothesisAgent(BaseAgent):
     """
     HypothesisAgent reasons about the attack surface:
     - Analyzes endpoint structures, HTTP methods, and query/body parameter names
-    - Correlates with OWASP Top 10 vulnerability risk vectors
+    - Correlates with 10+ OWASP & real-world vulnerability risk vectors
     - Computes confidence scores and ranks the test queue
-    - Applies LLM/Heuristic intelligence for prioritized execution
+    - Applies cognitive LLM reasoning + deterministic domain heuristics
     """
 
     PARAM_CORRELATIONS = {
@@ -34,15 +34,21 @@ class HypothesisAgent(BaseAgent):
         ],
         "auth": [
             "role", "admin", "token", "auth", "is_admin", "api_key", "secret", "permission"
+        ],
+        "redirect": [
+            "url", "redirect", "next", "return", "target", "dest", "destination", "go", "link"
+        ],
+        "traversal": [
+            "file", "path", "doc", "document", "folder", "root", "pg", "page", "template", "include"
         ]
     }
 
     async def run(self) -> None:
-        self.log("Evaluating discovered endpoints to generate ranked vulnerability hypotheses...")
+        self.log(f"Evaluating discovered endpoints with [{self.llm.name}] reasoning...")
         new_hypotheses: List[Hypothesis] = []
 
         for endpoint_id, ep in self.context.endpoint_map.items():
-            ep_hypotheses = self._analyze_endpoint(ep)
+            ep_hypotheses = await self._analyze_endpoint(ep)
             new_hypotheses.extend(ep_hypotheses)
 
         # Sort hypotheses by confidence descending
@@ -50,14 +56,56 @@ class HypothesisAgent(BaseAgent):
 
         self.context.hypothesis_queue = new_hypotheses
         self.context.stats.total_hypotheses_generated = len(new_hypotheses)
-        self.log(f"Generated {len(new_hypotheses)} prioritized vulnerability hypotheses across {len(self.context.endpoint_map)} endpoints.")
+        self.log(f"Formulated {len(new_hypotheses)} prioritized vulnerability hypotheses across {len(self.context.endpoint_map)} endpoints.")
 
-    def _analyze_endpoint(self, ep: Endpoint) -> List[Hypothesis]:
+    async def _analyze_endpoint(self, ep: Endpoint) -> List[Hypothesis]:
         hypotheses: List[Hypothesis] = []
         path_lower = ep.path.lower()
         all_params = list(set(ep.query_params + ep.body_params))
 
-        # 1. Path-based Misconfiguration & Sensitive Data Analysis
+        # 1. Missing Security Headers Analysis
+        if ep.missing_security_headers and ("x-frame-options" in ep.missing_security_headers or "content-security-policy" in ep.missing_security_headers):
+            hypotheses.append(Hypothesis(
+                id=str(uuid.uuid4())[:8],
+                endpoint_id=ep.id,
+                url=ep.url,
+                method=ep.method,
+                vuln_class=VulnClass.SECURITY_HEADERS,
+                confidence_score=0.90,
+                rationale=f"Endpoint lacks critical browser security defense headers: {', '.join(ep.missing_security_headers[:3])}.",
+                test_plan="Verify missing X-Frame-Options (Clickjacking) and Content-Security-Policy across responses.",
+                iteration=self.context.current_iteration
+            ))
+
+        # 2. CORS Misconfiguration Check
+        if ep.cors_headers or True:
+            hypotheses.append(Hypothesis(
+                id=str(uuid.uuid4())[:8],
+                endpoint_id=ep.id,
+                url=ep.url,
+                method=ep.method,
+                vuln_class=VulnClass.CORS_MISCONFIG,
+                confidence_score=0.82,
+                rationale=f"Cross-Origin Resource Sharing (CORS) origin reflections must be tested for credential exposure.",
+                test_plan="Send preflight and GET request with Origin: https://evil-attacker.com and test credentials handling.",
+                iteration=self.context.current_iteration
+            ))
+
+        # 3. GraphQL Introspection Check
+        if ep.is_graphql:
+            hypotheses.append(Hypothesis(
+                id=str(uuid.uuid4())[:8],
+                endpoint_id=ep.id,
+                url=ep.url,
+                method="POST" if ep.method == "POST" else "GET",
+                vuln_class=VulnClass.GRAPHQL_INTROSPECTION,
+                confidence_score=0.95,
+                rationale=f"GraphQL endpoint detected at '{ep.path}'. Schema introspection may expose entire data schema in production.",
+                test_plan="Send GraphQL query '__schema { types { name } }' to detect unauthenticated schema leaks.",
+                iteration=self.context.current_iteration
+            ))
+
+        # 4. Path-based Misconfiguration & Sensitive Data Analysis
         if any(sens in path_lower for sens in [".env", ".git", "debug", "actuator", "phpinfo", "server-status"]):
             hypotheses.append(Hypothesis(
                 id=str(uuid.uuid4())[:8],
@@ -82,7 +130,7 @@ class HypothesisAgent(BaseAgent):
                 iteration=self.context.current_iteration
             ))
 
-        # 2. Administrative / Auth Routes
+        # 5. Administrative / Privileged Routes
         if any(auth_word in path_lower for auth_word in ["/admin", "/dashboard", "/internal", "/manage", "/settings"]):
             hypotheses.append(Hypothesis(
                 id=str(uuid.uuid4())[:8],
@@ -96,11 +144,11 @@ class HypothesisAgent(BaseAgent):
                 iteration=self.context.current_iteration
             ))
 
-        # 3. Parameter-based Analysis
+        # 6. Parameter-based Analysis
         for param in all_params:
             param_lower = param.lower()
 
-            # SQL Injection hypothesis
+            # SQL Injection
             if any(sqli_kw == param_lower or sqli_kw in param_lower for sqli_kw in self.PARAM_CORRELATIONS["sqli"]):
                 hypotheses.append(Hypothesis(
                     id=str(uuid.uuid4())[:8],
@@ -115,7 +163,7 @@ class HypothesisAgent(BaseAgent):
                     iteration=self.context.current_iteration
                 ))
 
-            # XSS hypothesis
+            # XSS
             if any(xss_kw == param_lower or xss_kw in param_lower for xss_kw in self.PARAM_CORRELATIONS["xss"]):
                 hypotheses.append(Hypothesis(
                     id=str(uuid.uuid4())[:8],
@@ -130,7 +178,7 @@ class HypothesisAgent(BaseAgent):
                     iteration=self.context.current_iteration
                 ))
 
-            # IDOR hypothesis
+            # IDOR
             if any(idor_kw == param_lower or idor_kw in param_lower for idor_kw in self.PARAM_CORRELATIONS["idor"]):
                 hypotheses.append(Hypothesis(
                     id=str(uuid.uuid4())[:8],
@@ -145,7 +193,7 @@ class HypothesisAgent(BaseAgent):
                     iteration=self.context.current_iteration
                 ))
 
-            # SSRF hypothesis
+            # SSRF
             if any(ssrf_kw == param_lower or ssrf_kw in param_lower for ssrf_kw in self.PARAM_CORRELATIONS["ssrf"]):
                 hypotheses.append(Hypothesis(
                     id=str(uuid.uuid4())[:8],
@@ -160,18 +208,33 @@ class HypothesisAgent(BaseAgent):
                     iteration=self.context.current_iteration
                 ))
 
-            # Broken Auth hypothesis
-            if any(auth_kw == param_lower or auth_kw in param_lower for auth_kw in self.PARAM_CORRELATIONS["auth"]):
+            # Open Redirect
+            if any(red_kw == param_lower or red_kw in param_lower for red_kw in self.PARAM_CORRELATIONS["redirect"]):
                 hypotheses.append(Hypothesis(
                     id=str(uuid.uuid4())[:8],
                     endpoint_id=ep.id,
                     url=ep.url,
                     method=ep.method,
                     target_param=param,
-                    vuln_class=VulnClass.BROKEN_AUTH,
-                    confidence_score=0.80,
-                    rationale=f"Parameter '{param}' controls role or permission level.",
-                    test_plan="Tamper with parameter to test privilege escalation without valid administrative session.",
+                    vuln_class=VulnClass.OPEN_REDIRECT,
+                    confidence_score=0.84,
+                    rationale=f"Parameter '{param}' controls HTTP redirect destinations.",
+                    test_plan="Supply external canary URL and inspect HTTP 301/302 Location header.",
+                    iteration=self.context.current_iteration
+                ))
+
+            # Path Traversal
+            if any(trav_kw == param_lower or trav_kw in param_lower for trav_kw in self.PARAM_CORRELATIONS["traversal"]):
+                hypotheses.append(Hypothesis(
+                    id=str(uuid.uuid4())[:8],
+                    endpoint_id=ep.id,
+                    url=ep.url,
+                    method=ep.method,
+                    target_param=param,
+                    vuln_class=VulnClass.PATH_TRAVERSAL,
+                    confidence_score=0.83,
+                    rationale=f"Parameter '{param}' accepts file system paths or template names.",
+                    test_plan="Test safe relative traversal sequence to verify file inclusion controls.",
                     iteration=self.context.current_iteration
                 ))
 

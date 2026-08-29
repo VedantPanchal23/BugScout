@@ -1,0 +1,2 @@
+﻿{"query": "{ __schema { types { name } } }"}
+{"query": "{ __schema { queryType { name fields { name } } } }"}

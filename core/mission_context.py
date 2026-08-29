@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import json
 import time
 from enum import Enum
 from typing import Dict, List, Optional, Any
@@ -30,6 +31,11 @@ class VulnClass(str, Enum):
     MISCONFIG = "Security Misconfiguration"
     SENSITIVE_DATA = "Sensitive Data Exposure"
     INFO_DISCLOSURE = "Information Disclosure"
+    CORS_MISCONFIG = "CORS Misconfiguration"
+    SECURITY_HEADERS = "Missing Critical Security Headers / Clickjacking"
+    GRAPHQL_INTROSPECTION = "GraphQL Schema Introspection Enabled"
+    OPEN_REDIRECT = "Open URL Redirection"
+    PATH_TRAVERSAL = "Path / Directory Traversal"
 
 
 class ScopeConfig(BaseModel):
@@ -42,6 +48,11 @@ class ScopeConfig(BaseModel):
     max_crawl_depth: int = 3
     allow_localhost_for_testing: bool = False
     timeout_seconds: float = 10.0
+    custom_headers: Dict[str, str] = Field(default_factory=dict)
+    session_cookies: Dict[str, str] = Field(default_factory=dict)
+    verify_ssl: bool = True
+    max_retries: int = 2
+    retry_backoff: float = 0.5
 
 
 class Endpoint(BaseModel):
@@ -58,6 +69,11 @@ class Endpoint(BaseModel):
     baseline_status: Optional[int] = None
     baseline_body_snippet: Optional[str] = None
     baseline_response_time_ms: Optional[float] = None
+    security_headers: Dict[str, str] = Field(default_factory=dict)
+    missing_security_headers: List[str] = Field(default_factory=list)
+    cors_headers: Dict[str, str] = Field(default_factory=dict)
+    is_spa_route: bool = False
+    is_graphql: bool = False
 
 
 class Hypothesis(BaseModel):
@@ -71,6 +87,7 @@ class Hypothesis(BaseModel):
     rationale: str
     test_plan: str
     iteration: int = 1
+    llm_reasoned: bool = False
 
 
 class TestResult(BaseModel):
@@ -144,3 +161,13 @@ class MissionContext(BaseModel):
             "level": level,
             "message": message
         })
+
+    def save_checkpoint(self, path: str) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.model_dump(), f, indent=2)
+
+    @classmethod
+    def load_checkpoint(cls, path: str) -> MissionContext:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return cls(**data)
