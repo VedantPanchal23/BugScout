@@ -1,0 +1,46 @@
+{
+  "experiment": {
+    "name": "46-Case Ground Truth Benchmark Evaluation",
+    "id": "primary_46_case_benchmark",
+    "benchmark_version": "v2.1",
+    "git_commit": "d3fe21f627d616f922d6db0b8eab2891f3230f98",
+    "python_version": "3.11.9",
+    "os_platform": "win32",
+    "timestamp_utc": "2026-08-29T14:16:17.687297+00:00",
+    "random_seed": 42,
+    "model_configuration": {
+      "model_name": "groq/qwen3.8-27b (or heuristic fallback)",
+      "temperature": 0.0,
+      "deterministic_inference": true,
+      "heuristic_fallback_available": true
+    }
+  },
+  "dataset": {
+    "total_cases": 46,
+    "positive_cases": 27,
+    "negative_cases": 19,
+    "ground_truth_hash": "3136d9259a71fc81b8183bbdc9d3ceadeac6ebb9d302ab1466e5139f7d0a5ed4"
+  },
+  "confusion_matrix": {
+    "true_positives": 19,
+    "true_negatives": 18,
+    "false_positives": 1,
+    "false_negatives": 8
+  },
+  "traffic": {
+    "experiment_requests_sent": 316,
+    "single_pass_budget_comparison_requests": 153,
+    "ab_comparison_traffic": {
+      "blind_baseline_requests": 428,
+      "bugscout_requests": 153,
+      "traffic_reduction_percent": 64.25
+    }
+  },
+  "metrics": {
+    "precision": 95.0,
+    "recall": 70.37,
+    "f1_score": 80.85,
+    "specificity": 94.74,
+    "endpoint_discovery": "64 endpoints discovered (45 known baseline routes)"
+  }
+}
