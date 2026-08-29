@@ -5,6 +5,7 @@ import ipaddress
 import posixpath
 import re
 import time
+import unicodedata
 from urllib.parse import urlparse, unquote
 from typing import Tuple, Optional
 
@@ -20,6 +21,7 @@ class ScopeGuard:
     """
     Cross-cutting ethical and security boundary enforcement layer.
     Every single HTTP request must pass through ScopeGuard before execution.
+    Hardened against Unicode normalization, null-byte injections, and obfuscated IPs.
     """
 
     BLOCKED_PAYLOAD_KEYWORDS = [
@@ -43,14 +45,22 @@ class ScopeGuard:
 
     def is_private_or_restricted_ip(self, host: str) -> bool:
         """Check if host resolves to a private, loopback, link-local, or cloud metadata IP."""
-        # Strip port if present
-        host_clean = host.split(":")[0].strip("[]")
+        # Strip port and brackets if IPv6
+        host_clean = host.split(":")[0].strip("[]").strip()
 
-        if host_clean.lower() in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
+        if host_clean.lower() in ["localhost", "127.0.0.1", "::1", "0.0.0.0", "0", "127.1"]:
             return True
 
         if host_clean.lower() in self.CLOUD_METADATA_IPS or "metadata" in host_clean.lower():
             return True
+
+        # Check integer/hex representations of 127.0.0.1 (e.g. 2130706433, 0x7f000001)
+        if host_clean.isdigit():
+            try:
+                ip = ipaddress.IPv4Address(int(host_clean))
+                return ip.is_private or ip.is_loopback or ip.is_link_local
+            except ValueError:
+                pass
 
         try:
             ip = ipaddress.ip_address(host_clean)
@@ -65,10 +75,17 @@ class ScopeGuard:
             return False
 
     def normalize_path(self, raw_path: str) -> str:
-        """Normalize URL path to prevent directory traversal and double-slash bypasses."""
+        """Normalize URL path with Unicode NFKC, null-byte stripping, and double-decode."""
         if not raw_path:
             return "/"
-        unquoted = unquote(raw_path)
+
+        # Unicode NFKC normalization & null-byte stripping
+        cleaned = unicodedata.normalize("NFKC", raw_path).replace("\x00", "").replace("%00", "")
+
+        # Double URL-decode to catch %252e%252e%252f
+        unquoted = unquote(unquote(cleaned))
+
+        # Collapse multiple slashes
         collapsed = re.sub(r"/+", "/", unquoted)
         normalized = posixpath.normpath(collapsed)
         if not normalized.startswith("/"):
@@ -80,11 +97,13 @@ class ScopeGuard:
     def validate_url(self, url: str) -> Tuple[bool, Optional[str]]:
         """Validate whether a target URL complies with ethical boundaries."""
         try:
+            # Unicode normalize the entire URL string
+            url = unicodedata.normalize("NFKC", url).replace("\x00", "").replace("%00", "")
             parsed = urlparse(url)
         except Exception as e:
             return False, f"Malformed URL: {e}"
 
-        if not parsed.scheme or parsed.scheme not in ["http", "https"]:
+        if not parsed.scheme or parsed.scheme.lower() not in ["http", "https"]:
             return False, f"Invalid scheme: {parsed.scheme}"
 
         hostname = parsed.hostname
@@ -131,7 +150,6 @@ class ScopeGuard:
                         break
                 if pattern.endswith("/*"):
                     prefix = pattern[:-2]
-                    # Ensure prefix boundary match: /api/* matches /api/v1 but not /api-secret/
                     if normalized_path == prefix or normalized_path.startswith(prefix + "/"):
                         path_match = True
                         break

@@ -9,10 +9,11 @@ __pycache__/
 *.class
 .pytest_cache/
 
-# Outputs & Reports (sensitive scan outputs)
+# Outputs & Reports (sensitive scan outputs & checkpoints)
 outputs/*.json
 outputs/*.md
 outputs/*.html
+outputs/*.sarif
 !outputs/.gitkeep
 
 # Environment variables & secrets

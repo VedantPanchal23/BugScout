@@ -3,17 +3,22 @@
 import uvicorn
 from fastapi import FastAPI, Response, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, RedirectResponse
+from pydantic import BaseModel
 
 app = FastAPI(
     title="BugScout Test Target (Deliberately Vulnerable App)",
     description="Safe local test application designed for verifying BugScout autonomous security agents.",
-    version="2.0.0"
+    version="3.0.0"
 )
+
+
+class LoginRequest(BaseModel):
+    username: str = "admin"
+    password: str = "password"
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    # Deliberately missing X-Frame-Options and CSP headers
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -37,7 +42,6 @@ async def index():
         </nav>
         <script src="/static/app.js"></script>
         <script>
-            // Inline API fetch calls and SPA client routes
             fetch('/api/v1/recommendations?category=electronics');
             const routes = [
                 { path: "/user/orders", component: "OrdersView" },
@@ -68,9 +72,18 @@ async def sitemap():
     return Response(content=xml, media_type="application/xml")
 
 
+@app.post("/api/auth/login")
+async def login(req: LoginRequest):
+    return JSONResponse(content={
+        "status": "success",
+        "token": "jwt_token_demo_9876",
+        "user": req.username,
+        "role": "authenticated_user"
+    })
+
+
 @app.get("/search", response_class=HTMLResponse)
 async def search_endpoint(q: str = ""):
-    # Deliberately vulnerable to Reflected XSS
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -87,7 +100,6 @@ async def search_endpoint(q: str = ""):
 
 @app.get("/api/products")
 async def products_endpoint(search: str = ""):
-    # Deliberately vulnerable to SQLi simulation
     if "'" in search or "1=1" in search or "OR" in search:
         if "'" in search and "1=1" not in search:
             return PlainTextResponse(
@@ -105,7 +117,6 @@ async def products_endpoint(search: str = ""):
 
 @app.get("/api/user/profile")
 async def profile_endpoint(id: str = "1"):
-    # Deliberately vulnerable to IDOR
     profiles = {
         "1": {"id": 1, "username": "alice", "email": "alice@example.com", "role": "user"},
         "2": {"id": 2, "username": "bob_admin", "email": "bob_admin@company.corp", "role": "admin", "api_token": "token_admin_98765"},
@@ -118,7 +129,6 @@ async def profile_endpoint(id: str = "1"):
 @app.get("/api/user/private-data")
 @app.options("/api/user/private-data")
 async def cors_vulnerable_endpoint(request: Request):
-    # Deliberately vulnerable to CORS Misconfiguration (Reflects Origin + Credentials True)
     origin = request.headers.get("Origin") or "https://evil-attacker.com"
     headers = {
         "Access-Control-Allow-Origin": origin,
@@ -137,7 +147,6 @@ async def cors_vulnerable_endpoint(request: Request):
 @app.post("/graphql")
 @app.get("/graphql")
 async def graphql_endpoint(request: Request):
-    # Deliberately vulnerable to GraphQL Introspection
     return JSONResponse(content={
         "data": {
             "__schema": {
@@ -155,13 +164,11 @@ async def graphql_endpoint(request: Request):
 
 @app.get("/redirect")
 async def open_redirect_endpoint(url: str = "https://example.com"):
-    # Deliberately vulnerable to Open URL Redirection
     return RedirectResponse(url=url, status_code=302)
 
 
 @app.get("/api/download")
 async def path_traversal_endpoint(file: str = "receipt.pdf"):
-    # Deliberately vulnerable to Path Traversal simulation
     if ".." in file or "etc" in file or "win.ini" in file:
         return PlainTextResponse("root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\n[boot loader]\n[fonts]\n", status_code=200)
     return PlainTextResponse(f"Simulated file content for {file}", status_code=200)
@@ -169,7 +176,6 @@ async def path_traversal_endpoint(file: str = "receipt.pdf"):
 
 @app.get("/api/proxy")
 async def proxy_endpoint(url: str = ""):
-    # Deliberately vulnerable to SSRF probe simulation
     if "127.0.0.1" in url or "localhost" in url:
         return JSONResponse(content={"status": "fetched", "target": url, "response": "Internal Service OK"})
     return JSONResponse(content={"status": "error", "message": "Invalid host"})
@@ -177,7 +183,6 @@ async def proxy_endpoint(url: str = ""):
 
 @app.get("/api/admin/dashboard")
 async def admin_dashboard(request: Request):
-    # Deliberately missing authorization checks
     auth_header = request.headers.get("Authorization")
     return JSONResponse(content={
         "status": "admin_access_granted",
@@ -196,12 +201,11 @@ async def debug_config():
     return JSONResponse(content={
         "debug": True,
         "database": {"host": "127.0.0.1", "port": 5432, "name": "production_db"},
-        "api_version": "v2.0.0-dev"
+        "api_version": "v3.0.0-dev"
     })
 
 
 def run_target(host: str = "127.0.0.1", port: int = 8888):
-    """Run target server directly."""
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 

@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import os
 import json
 import time
 from enum import Enum
@@ -38,6 +39,25 @@ class VulnClass(str, Enum):
     PATH_TRAVERSAL = "Path / Directory Traversal"
 
 
+class AuthConfig(BaseModel):
+    login_url: Optional[str] = None
+    login_method: str = "POST"
+    login_payload: Dict[str, Any] = Field(default_factory=dict)
+    token_json_path: Optional[str] = "token"  # e.g., 'access_token' or 'data.token'
+    token_header_name: str = "Authorization"
+    token_prefix: str = "Bearer "
+    cookie_name: Optional[str] = None
+    auto_refresh: bool = True
+
+
+class WAFInfo(BaseModel):
+    detected_waf: Optional[str] = None
+    confidence: float = 0.0
+    signatures_matched: List[str] = Field(default_factory=list)
+    polite_mode_active: bool = False
+    adaptive_delay_seconds: float = 0.0
+
+
 class ScopeConfig(BaseModel):
     target: str
     allowed_hosts: List[str] = Field(default_factory=list)
@@ -53,6 +73,10 @@ class ScopeConfig(BaseModel):
     verify_ssl: bool = True
     max_retries: int = 2
     retry_backoff: float = 0.5
+    auth: Optional[AuthConfig] = None
+    waf_protection: bool = True
+    enable_checkpoints: bool = True
+    checkpoint_path: str = "outputs/checkpoint.json"
 
 
 class Endpoint(BaseModel):
@@ -139,6 +163,8 @@ class MissionStats(BaseModel):
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     duration_seconds: float = 0.0
+    waf_detected: Optional[str] = None
+    checkpoints_saved: int = 0
 
 
 class MissionContext(BaseModel):
@@ -148,6 +174,7 @@ class MissionContext(BaseModel):
     hypothesis_queue: List[Hypothesis] = Field(default_factory=list)
     test_results: List[TestResult] = Field(default_factory=list)
     findings: List[Finding] = Field(default_factory=list)
+    waf_info: WAFInfo = Field(default_factory=WAFInfo)
     stats: MissionStats = Field(default_factory=MissionStats)
     current_iteration: int = 1
     max_iterations: int = 2
@@ -162,9 +189,13 @@ class MissionContext(BaseModel):
             "message": message
         })
 
-    def save_checkpoint(self, path: str) -> None:
-        with open(path, "w", encoding="utf-8") as f:
+    def save_checkpoint(self, path: Optional[str] = None) -> str:
+        target_path = path or self.scope.checkpoint_path
+        os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+        with open(target_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=2)
+        self.stats.checkpoints_saved += 1
+        return target_path
 
     @classmethod
     def load_checkpoint(cls, path: str) -> MissionContext:

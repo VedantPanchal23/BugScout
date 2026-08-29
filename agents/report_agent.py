@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import json
@@ -18,18 +18,20 @@ class ReportAgent(BaseAgent):
     - Generates professional Markdown report (outputs/VulnerabilityReport.md)
     - Generates machine-readable JSON (outputs/VulnerabilityReport.json)
     - Generates standalone Interactive HTML Dashboard (outputs/VulnerabilityReport.html)
+    - Generates OASIS SARIF 2.1.0 report for GitHub Security / CI-CD (outputs/VulnerabilityReport.sarif)
     - Computes CVSS 3.1 severity metrics and reproduction guides
     - Renders terminal summary with Rich UI
     """
 
     async def run(self) -> None:
-        self.log("Synthesizing mission findings into final vulnerability reports and HTML dashboard...")
+        self.log("Synthesizing mission findings into Markdown, JSON, HTML Dashboard, and SARIF 2.1.0 reports...")
         output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs")
         os.makedirs(output_dir, exist_ok=True)
 
         md_path = os.path.join(output_dir, "VulnerabilityReport.md")
         json_path = os.path.join(output_dir, "VulnerabilityReport.json")
         html_path = os.path.join(output_dir, "VulnerabilityReport.html")
+        sarif_path = os.path.join(output_dir, "VulnerabilityReport.sarif")
 
         # 1. Generate JSON report
         report_data = self._build_json_report()
@@ -46,26 +48,104 @@ class ReportAgent(BaseAgent):
         with open(html_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        self.log(f"Reports generated successfully: Markdown ({md_path}), JSON ({json_path}), HTML Dashboard ({html_path}).")
+        # 4. Generate SARIF 2.1.0 standard report
+        sarif_data = self._build_sarif_report()
+        with open(sarif_path, "w", encoding="utf-8") as f:
+            json.dump(sarif_data, f, indent=2)
 
-        # 4. Print Rich Terminal Summary
+        self.log(f"Reports generated successfully: Markdown ({md_path}), JSON ({json_path}), HTML ({html_path}), SARIF ({sarif_path}).")
+
+        # 5. Print Rich Terminal Summary
         self._print_rich_summary()
 
     def _build_json_report(self) -> Dict[str, Any]:
         return {
             "metadata": {
                 "tool": "BugScout - Autonomous Bug Bounty Scout",
-                "version": "2.0.0",
+                "version": "3.0.0",
                 "scan_date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                 "target": self.context.target,
                 "duration_seconds": round(self.context.stats.duration_seconds, 2),
                 "total_requests_sent": self.context.stats.total_requests_sent,
                 "total_endpoints_discovered": len(self.context.endpoint_map),
                 "total_findings": len(self.context.findings),
+                "waf_detected": self.context.waf_info.detected_waf,
             },
             "scope": self.context.scope.model_dump(),
+            "waf_info": self.context.waf_info.model_dump(),
             "endpoints": [ep.model_dump() for ep in self.context.endpoint_map.values()],
             "findings": [f.model_dump() for f in self.context.findings]
+        }
+
+    def _build_sarif_report(self) -> Dict[str, Any]:
+        """Build OASIS SARIF v2.1.0 report for GitHub Code Scanning / CI-CD."""
+        rules = []
+        results = []
+        rule_indices = {}
+
+        severity_level_map = {
+            Severity.CRITICAL: "error",
+            Severity.HIGH: "error",
+            Severity.MEDIUM: "warning",
+            Severity.LOW: "note",
+            Severity.INFORMATIONAL: "none",
+        }
+
+        for f in self.context.findings:
+            rule_id = f.cwe_id or f.vuln_class.name
+            if rule_id not in rule_indices:
+                rule_indices[rule_id] = len(rules)
+                rules.append({
+                    "id": rule_id,
+                    "name": f.vuln_class.value,
+                    "shortDescription": {"text": f.title},
+                    "fullDescription": {"text": f.description},
+                    "defaultConfiguration": {
+                        "level": severity_level_map.get(f.severity, "warning")
+                    },
+                    "properties": {
+                        "tags": ["security", "OWASP", f.cwe_id],
+                        "precision": "high",
+                        "cvssScore": str(f.cvss_score),
+                        "cvssVector": f.cvss_vector,
+                        "remediation": f.remediation
+                    }
+                })
+
+            results.append({
+                "ruleId": rule_id,
+                "ruleIndex": rule_indices[rule_id],
+                "level": severity_level_map.get(f.severity, "warning"),
+                "message": {
+                    "text": f"[{f.severity.value}] {f.title}: {f.description} (CVSS: {f.cvss_score})"
+                },
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": f.affected_endpoint
+                            }
+                        }
+                    }
+                ]
+            })
+
+        return {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "BugScout",
+                            "semanticVersion": "3.0.0",
+                            "informationUri": "https://github.com/VedantPanchal23/BugScout",
+                            "rules": rules
+                        }
+                    },
+                    "results": results
+                }
+            ]
         }
 
     def _build_markdown_report(self) -> str:
@@ -76,12 +156,15 @@ class ReportAgent(BaseAgent):
         low_count = sum(1 for f in findings if f.severity == Severity.LOW)
         info_count = sum(1 for f in findings if f.severity == Severity.INFORMATIONAL)
 
+        waf_status = self.context.waf_info.detected_waf or "None Detected"
+
         lines = [
             "# [BugScout] Autonomous Vulnerability Assessment Report",
             "",
             f"**Target:** `{self.context.target}`  ",
             f"**Assessment Date:** `{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}`  ",
             f"**Scan Duration:** `{self.context.stats.duration_seconds:.2f}s`  ",
+            f"**WAF Protection:** `{waf_status}`  ",
             f"**Requests Executed:** `{self.context.stats.total_requests_sent}` | **Scope Blocks:** `{self.context.stats.blocked_requests_count}`  ",
             "",
             "---",
@@ -474,7 +557,7 @@ class ReportAgent(BaseAgent):
                         <p><strong>Description:</strong> ` + f.description + `</p>
                         
                         <div style="margin-top: 12px;">
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText(\`` + f.reproduction_curl + `\`); this.innerText='Copied!';">Copy cURL</button>
+                            <button class="copy-btn" onclick="navigator.clipboard.writeText(encodeURIComponent('` + f.reproduction_curl + `')); this.innerText='Copied!';">Copy cURL</button>
                             <strong>Proof of Concept (cURL):</strong>
                             <pre><code>` + f.reproduction_curl + `</code></pre>
                         </div>
@@ -547,7 +630,7 @@ class ReportAgent(BaseAgent):
         console.print(table)
         console.print(Panel(
             f"[bold green]Mission Complete![/bold green] Total Requests: {self.context.stats.total_requests_sent} | Endpoints: {len(self.context.endpoint_map)} | Findings: {len(findings)} | Duration: {self.context.stats.duration_seconds:.2f}s\n"
-            f"Reports saved to [bold cyan]outputs/VulnerabilityReport.html[/bold cyan], [bold cyan]outputs/VulnerabilityReport.md[/bold cyan], and [bold cyan]outputs/VulnerabilityReport.json[/bold cyan]",
+            f"Reports saved to [bold cyan]outputs/VulnerabilityReport.sarif[/bold cyan], [bold cyan]outputs/VulnerabilityReport.html[/bold cyan], [bold cyan]outputs/VulnerabilityReport.md[/bold cyan], and [bold cyan]outputs/VulnerabilityReport.json[/bold cyan]",
             title="Scan Summary",
             border_style="green"
         ))

@@ -1,0 +1,28 @@
+﻿version: "3.8"
+
+services:
+  mock-target:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "mock_target/server.py"]
+    ports:
+      - "8888:8888"
+    networks:
+      - scout-net
+
+  bugscout:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["--demo"]
+    depends_on:
+      - mock-target
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - scout-net
+
+networks:
+  scout-net:
+    driver: bridge

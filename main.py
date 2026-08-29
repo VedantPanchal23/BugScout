@@ -27,12 +27,12 @@ console = Console(highlight=False)
 BANNER = """[bold cyan]
   ____               ____                 _   
  | __ ) _   _  __ _ / ___|  ___ ___  _   _| |_ 
- |  _ \| | | |/ _ |\___ \ / __/ _ \| | | | __|
+ |  _ \| | | |/ _` |\___ \ / __/ _ \| | | | __|
  | |_) | |_| | (_| | ___) | (_| (_) | |_| | |_ 
  |____/ \__,_|\__, ||____/ \___\___/ \__,_|\__|
               |___/                            
-[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout[/bold white]
-[dim]Zero-Cost | Ethical Boundary Enforcement | Agentic AI Pipeline[/dim]
+[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.0[/bold white]
+[dim]Zero-Cost | Ethical Boundary Enforcement | SARIF 2.1.0 | WAF Resilient[/dim]
 """
 
 
@@ -50,12 +50,14 @@ def start_mock_server_background():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BugScout - Autonomous Bug Bounty Scout")
+    parser = argparse.ArgumentParser(description="BugScout - Autonomous Bug Bounty Scout Platform")
     parser.add_argument("--config", default="config/scope.yaml", help="Path to scope.yaml config")
     parser.add_argument("--target", default=None, help="Override target URL in scope")
     parser.add_argument("--demo", action="store_true", help="Run local end-to-end demo against built-in mock target")
     parser.add_argument("--iterations", type=int, default=2, help="Max agentic feedback loop iterations")
     parser.add_argument("--llm", default="auto", choices=["auto", "groq", "gemini", "hf", "heuristic"], help="LLM backend selection")
+    parser.add_argument("--resume", action="store_true", help="Resume scan from checkpoint if available")
+    parser.add_argument("--checkpoint", default=None, help="Custom checkpoint file path")
     return parser.parse_args()
 
 
@@ -95,7 +97,9 @@ async def main_async():
         pipeline = BugScoutPipeline(
             config_path=args.config,
             custom_llm=custom_llm,
-            max_iterations=args.iterations
+            max_iterations=args.iterations,
+            resume=args.resume,
+            checkpoint_path=args.checkpoint
         )
         if args.target:
             pipeline.context.target = args.target
@@ -114,7 +118,7 @@ async def main_async():
         console.print(f"[bold red]Configuration Error:[/bold red] {fnf}")
         sys.exit(1)
     except KeyboardInterrupt:
-        console.print("\n[bold yellow]Scan aborted by user.[/bold yellow]")
+        console.print("\n[bold yellow]Scan paused by user. State checkpoint saved.[/bold yellow]")
         sys.exit(0)
 
 
