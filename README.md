@@ -2,9 +2,32 @@
 
 [![Architecture](https://img.shields.io/badge/Architecture-7--Stage%20Policy%20Engine-blue)](#4-system-architecture--policy-engine)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-OASIS%202.1.0%20Compliant-purple)](#13-reproducibility--reporting-suite)
-[![Benchmark Evaluation](https://img.shields.io/badge/Benchmark-46%20Controlled%20Cases-brightgreen)](#7-ground-truth-benchmark-lab-46-cases)
+[![Benchmark Evaluation](https://img.shields.io/badge/Benchmark-46%20Labeled%20Cases-brightgreen)](#7-ground-truth-benchmark-lab-46-cases)
 [![LLM Engine](https://img.shields.io/badge/LLM-Groq%20%7C%20Gemini%20%7C%20HF%20%7C%20Heuristic-success)](#4-system-architecture--policy-engine)
 [![Tests](https://img.shields.io/badge/Pytest-28%2F28%20Passed-brightgreen)](#14-quickstart--cli-command-reference)
+
+---
+
+## 🎯 Headline Research Results
+
+```
+                         BUGSCOUT RESULTS
+
+        ┌─────────────────────────────────────────┐
+        │          64.25% fewer HTTP requests     │
+        └────────────────────┬────────────────────┘
+                             │
+              ┌──────────────┴──────────────┐
+              │                             │
+          BugScout                       Baseline
+        153 requests                   428 requests
+
+       Recall: 70.37%                 Recall: 81.48%
+      Precision: 95.00%              Precision: 88.00%
+       19/27 detected                 22/27 detected
+```
+
+> **Key Research Finding:** BugScout achieves **12.42 vs. 5.14 detected vulnerabilities per 100 HTTP requests (a 2.42× higher detection yield per request)** and increases precision from 88.00% to 95.00%, trading an **11.11-percentage-point recall delta** (70.37% vs. 81.48%) for a **64.25% reduction in total HTTP probing traffic**.
 
 ---
 
@@ -18,9 +41,12 @@ Automated application security testing (AST) and penetration testing reconnaissa
 ## 2. Research Question
 > **Central Hypothesis:** *Can LLM-guided threat prioritization reduce probing traffic while preserving detection performance relative to a predefined blind-testing baseline under deterministic safety constraints?*
 
+### Experimental Outcome: Partially Supported
+The evaluation **partially supports** the hypothesis. BugScout reduced HTTP probing traffic by **64.25%** and improved precision from **88.00% to 95.00%**, but this came with an **11.11-percentage-point reduction in recall** (81.48% for the blind baseline vs. 70.37% for BugScout).
+
 ### Primary & Secondary Success Criteria
 - **Primary Metric**: Vulnerability detection recall achieved at a bounded HTTP request budget.
-- **Secondary Metrics**: Precision, $F_1$ score, traffic efficiency (vulnerabilities detected per 100 HTTP requests), execution latency, and zero out-of-scope safety violations.
+- **Secondary Metrics**: Precision, $F_1$ score, detection yield per 100 HTTP requests, execution latency, and zero observed out-of-scope requests in the safety test suite.
 
 ---
 
@@ -71,12 +97,12 @@ Automated application security testing (AST) and penetration testing reconnaissa
                                 |
                                 v
                   +---------------------------+
-                  |  3. Policy / Orchestrator |  (Deterministic Budget & Priority Ordering)
+                  |  3. Policy Orchestrator   |  (Deterministic Budget & Priority Ordering)
                   +-------------+-------------+
                                 |
                                 v
                   +---------------------------+
-                  | 4. ScopeGuard Hard Block  |  (Deterministic IP, SSRF & Rate Limits)
+                  | 4. ScopeGuard Enforcement |  (Deterministic IP, SSRF & Rate Limits)
                   +-------------+-------------+
                                 | (Approved Probes)
                                 v
@@ -116,7 +142,7 @@ Automated application security testing (AST) and penetration testing reconnaissa
 | **1. Recon Agent** | **Deterministic** | Crawls HTML, mines React/Vue SPA routes, parses OpenAPI & GraphQL | Max crawl depth, path whitelist |
 | **2. Threat Reasoning Agent** | **LLM-Guided** | Semantic parameter risk ranking & hypothesis formulation | Prompt-injection isolation, heuristic fallback |
 | **3. Policy Orchestrator** | **Deterministic** | Enforces probe budgets, duplicate filtering, stopping criteria | Budget caps, priority queue |
-| **4. ScopeGuard** | **Deterministic** | Hard firewall against private IPs, SSRF, cloud metadata, redirects | Inviolable boundary check |
+| **4. ScopeGuard Layer** | **Deterministic** | Hard firewall against private IPs, SSRF, cloud metadata, redirects | Inviolable boundary check |
 | **5. Probe Execution Agent** | **Deterministic** | Dispatches non-destructive static syntax markers | Gated strictly by ScopeGuard |
 | **6. Observation Agent** | **Deterministic** | Behavioral diffing, status analysis, signature detection | Content-type check, response size limits |
 | **7. Validation Agent** | **Deterministic** | Evidence Quality scoring (Levels 0–4) | Requires Level 3/4 evidence (prevents hallucination) |
@@ -124,7 +150,7 @@ Automated application security testing (AST) and penetration testing reconnaissa
 
 ---
 
-## 5. ScopeGuard Ethical Firewall & Safety Guarantees
+## 5. ScopeGuard Ethical Boundary & Safety Guarantees
 
 BugScout operates exclusively under strict, verifiable ethical boundaries.
 
@@ -163,11 +189,11 @@ BugScout is equipped with multi-variant detection engines across 10+ vulnerabili
 
 ## 7. Ground Truth Benchmark Lab (46 Cases)
 
-Evaluated against a controlled **46-case Ground Truth Benchmark Lab** (`benchmark_lab/server.py`):
+The benchmark contains **46 labeled evaluation cases: 27 seeded vulnerability instances and 19 deceptive negative cases** (`benchmark_lab/server.py`):
 
 ```
-BugScout Benchmark Lab (46 Evaluated Cases)
-├── Vulnerable Variants (27 Seeded Cases)
+BugScout Benchmark Lab (46 Labeled Cases)
+├── Vulnerable Instances (27 Seeded Cases)
 │   ├── SQLi (5 Variants: GET, POST, JSON, Numeric, Time)
 │   ├── XSS (3 Contexts: Body, Attribute, JS Script)
 │   ├── CORS (3 Misconfigurations: Wildcard, Reflected, Null)
@@ -179,7 +205,7 @@ BugScout Benchmark Lab (46 Evaluated Cases)
 │   ├── GraphQL Introspection (1 Schema Exposure)
 │   ├── Missing Security Headers (1 Clickjacking Exposure)
 │   └── Unseen Generalization Suite (3 Hidden Endpoints)
-└── Deceptive Negative Decoys (19 Safe Controls)
+└── Deceptive Negative Cases (19 Safe Controls)
     ├── Parameterized SQL Search & Deceptive Syntax Warning Text
     ├── Safe HTML-Encoded Echo & Safe application/json Reflection
     ├── Static Whitelisted CORS & Wildcard without Credentials
@@ -195,13 +221,13 @@ BugScout Benchmark Lab (46 Evaluated Cases)
 
 ## 8. Empirical Performance Metrics (46-Case Benchmark)
 
-Evaluation on the 46-case ground-truth benchmark suite:
+Step-by-step arithmetic on the 46 labeled evaluation cases:
 
 $$\text{Precision} = \frac{\text{TP}}{\text{TP} + \text{FP}} = \frac{19}{19 + 1} = 95.00\%$$
 
 $$\text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}} = \frac{19}{19 + 8} = 70.37\%$$
 
-$$F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}} = 80.85\%$$
+$$F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}} = 2 \times \frac{0.95 \times 0.7037}{0.95 + 0.7037} = 80.85\%$$
 
 $$\text{Specificity} = \frac{\text{TN}}{\text{TN} + \text{FP}} = \frac{18}{18 + 1} = 94.74\%$$
 
@@ -241,18 +267,19 @@ $$\text{Specificity} = \frac{\text{TN}}{\text{TN} + \text{FP}} = \frac{18}{18 + 
 ### Baseline Methodology:
 - **Blind Baseline (Mode A)**: Exhaustively sprays dictionary payloads across all endpoints without semantic filtering.
 - **BugScout Agentic AI (Mode B)**: LLM analyzes parameter semantics to test only high-confidence vulnerability hypotheses.
-- **Workload**: Evaluated against the exact same **27 seeded vulnerabilities**.
+- **Workload**: Evaluated against the exact same **27 seeded vulnerability instances**.
 
-| Evaluation Metric | Mode A (Blind Baseline) | Mode B (BugScout Agentic AI) | Empirical Trade-Off / Delta |
+| Metric | Blind Baseline | BugScout Agentic AI | Empirical Trade-Off / Comparison |
 |---|:---:|:---:|:---:|
-| **Total HTTP Requests** | 428 | **153** | **-64.25% (Traffic Saved)** |
+| **HTTP Requests** | 428 | **153** | **-64.25% (Traffic Saved)** |
 | **Payload Tests Executed** | 368 | **115** | **-68.75% (Targeted)** |
 | **Vulnerabilities Detected** | **22 / 27** | **19 / 27** | **-11.11 percentage points recall** |
-| **Detection Recall** | **81.48%** | **70.37%** | Relative reduction: -13.64% |
+| **Recall** | **81.48%** | **70.37%** | Relative recall reduction: -13.64% |
 | **Precision** | 88.00% | **95.00%** | **+7.00% (High Precision)** |
-| **False Positives** | 3 | **1** | **-66.7% FP Reduction (1 vs 3)** |
-| **Traffic Efficiency** | 5.14 vulns / 100 req | **12.42 vulns / 100 req** | **2.41x Efficiency Multiplier** |
-| **Execution Duration** | 3.18s | **1.11s** | **-65.18% (Faster Completion)** |
+| **False Positives** | 3 | **1** | **-66.7% FP Reduction (1 vs. 3)** |
+| **Detection Yield / 100 Requests** | 5.14 | **12.42** | **2.42x Higher Yield per Request** |
+| **Relative Detection Yield** | 1.00× | **2.42×** | **+141.6% Yield Efficiency** |
+| **Duration** | 3.18s | **1.11s** | **-65.18% (Faster Completion)** |
 
 ---
 
@@ -264,7 +291,7 @@ Evaluating recall scaling across varying HTTP request probe budgets (`python mai
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Minimal Recon Budget** | 48 | 8 / 27 | 29.63% | 16.67 | Sub-optimal |
 | **Lightweight Budget** | 96 | 14 / 27 | 51.85% | 14.58 | Sub-optimal |
-| **BugScout Standard Single-Pass** | **153** | **19 / 27** | **70.37%** | **12.42** | **Optimal** |
+| **BugScout Standard Single-Pass** | **153** | **19 / 27** | **70.37%** | **12.42** | **Optimal Operating Point** |
 | **Extended Exploration Budget** | 198 | 19 / 27 | 70.37% | 9.60 | Diminishing Returns |
 | **BugScout Deep Replanning** | 282 | 19 / 27 | 70.37% | 6.74 | Diminishing Returns |
 | **Exhaustive Blind Dictionary Baseline** | 428 | 22 / 27 | 81.48% | 5.14 | Diminishing Returns |
@@ -291,9 +318,9 @@ Recall
 | **Tier 1: Heuristic Rules Only** | 142 | 4 | 4 | Baseline Deterministic Pattern Matching |
 | **Tier 2: Rules + LLM Threat Modeling** | 153 | 19 | 19 | **+15 Findings (+375.0% relative improvement via LLM)** |
 | **Tier 3: Rules + LLM + Replanning** | 282 | 27 | 19 | +8 Hypotheses (Deepens exploration; increases requests) |
-| **Tier 4: Full BugScout Platform** | 282 | 27 | 19 | Enforces 100% ScopeGuard firewall & rate limits |
+| **Tier 4: Full BugScout Platform** | 282 | 27 | 19 | Enforces ScopeGuard boundary & rate limits |
 
-> **Scientific Finding on Replanning:** Adding adaptive replanning (Tier 3) deepens hypothesis exploration (19 $\rightarrow$ 27 hypotheses) but increases request traffic (153 $\rightarrow$ 282 requests) without increasing final confirmed findings on this testbed. This demonstrates that replanning increases exploratory breadth, but requires multi-payload mutation suites to convert secondary hypotheses into confirmed vulnerabilities.
+> **Scientific Finding on Replanning:** Adding adaptive replanning (Tier 3) deepens hypothesis exploration (19 $\rightarrow$ 27 hypotheses) but increases request traffic from 153 to 282 requests without increasing final confirmed findings on this testbed. This demonstrates that replanning increases exploratory breadth, but requires multi-payload mutation suites to convert secondary hypotheses into confirmed vulnerabilities.
 
 ---
 
@@ -376,10 +403,35 @@ pip install -r requirements.txt
 
 ## 16. Conclusion & Future Work
 
-BugScout demonstrates that an **LLM-guided multi-agent security architecture**, paired with a **deterministic Policy Engine** and an **inviolable ScopeGuard firewall**, can reduce redundant network probing by **64.25%** and achieve a **2.41x traffic-efficiency multiplier** (12.42 vs 5.14 vulns / 100 requests) while maintaining **moderate detection recall (70.37%)** and **high precision (95.00%)** on a 46-case security benchmark.
+BugScout provides an experimentally evaluated LLM-guided multi-agent security testing architecture in which LLM reasoning is restricted to threat prioritization while network execution, scope enforcement, observation, evidence validation, and reporting remain deterministic.
+
+On the 46-case controlled benchmark, BugScout detected 19 of 27 seeded vulnerabilities and produced one false positive, corresponding to 70.37% recall and 95.00% precision. In the unified baseline experiment, BugScout reduced HTTP requests from 428 to 153, a 64.25% reduction, while increasing detection yield from 5.14 to 12.42 detected vulnerabilities per 100 requests, approximately a 2.42× improvement in detection yield per request.
+
+However, the efficiency improvement involved a measurable recall trade-off: the blind baseline detected 22/27 vulnerabilities (81.48% recall), compared with 19/27 (70.37%) for BugScout. Therefore, the current results **partially support** the research hypothesis rather than demonstrating that lower probing traffic can be achieved with no loss in detection performance.
+
+The results suggest that LLM-guided threat prioritization can substantially reduce probing volume while maintaining high precision, but additional work is required to recover missed vulnerabilities without eliminating the observed efficiency advantage.
 
 ### 4-Phase Future Work Roadmap:
-- **Phase 1 (Recall)**: Expand benchmark to 100+ cases; implement authenticated state machines; integrate headless Chromium DOM rendering.
-- **Phase 2 (Efficiency)**: Cost-aware dynamic probe selection; adaptive per-endpoint probe budgets; multi-payload mutation suites.
-- **Phase 3 (Robustness)**: Dynamic DNS rebinding defenses; multi-turn prompt injection resilience; automated LLM retry/backoff policies.
-- **Phase 4 (Generalization)**: Multi-framework validation across Django, Spring Boot, Laravel, and GraphQL microservice topologies.
+
+#### Phase 1 — Recall Improvement
+- Expand the benchmark to 100+ labeled cases.
+- Analyze and address the eight current false negatives.
+- Implement authenticated multi-user state-machine testing.
+- Integrate headless Chromium execution for dynamic DOM behavior.
+
+#### Phase 2 — Efficiency Optimization
+- Introduce cost-aware dynamic probe selection.
+- Implement adaptive per-endpoint probe budgets.
+- Evaluate recall as a function of HTTP-request budget.
+- Develop cost/recall curves to identify the optimal operating point.
+
+#### Phase 3 — Robustness & Safety
+- Add DNS-rebinding defenses and redirect-chain enforcement.
+- Expand prompt-injection resilience testing.
+- Measure LLM failure and fallback behavior.
+- Evaluate repeated runs under deterministic and nondeterministic inference settings.
+
+#### Phase 4 — Generalization
+- Evaluate across Django, Spring Boot, Laravel, and other application stacks.
+- Expand testing to GraphQL and microservice architectures.
+- Introduce a hidden benchmark split to measure generalization to previously unseen vulnerability patterns.

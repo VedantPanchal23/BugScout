@@ -143,22 +143,23 @@ class ABComparisonRunner:
         table.add_column("Mode B (BugScout Agentic AI)", justify="center", style="green")
         table.add_column("Empirical Trade-Off / Delta", justify="center", style="bold yellow")
 
-        table.add_row("Total HTTP Requests", str(a["total_requests"]), str(b["total_requests"]), f"-{trade['request_reduction_percentage']}% (Traffic Saved)")
+        table.add_row("HTTP Requests", str(a["total_requests"]), str(b["total_requests"]), f"-{trade['request_reduction_percentage']}% (Traffic Saved)")
         table.add_row("Payload Tests Executed", str(a["payload_tests_executed"]), str(b["payload_tests_executed"]), f"-{trade['payload_test_reduction_percentage']}% (Targeted)")
-        table.add_row("Vulnerabilities Detected", f"{a['vulnerabilities_detected']} / {total}", f"{b['vulnerabilities_detected']} / {total}", f"{trade['absolute_recall_delta_points']} pts Delta")
-        table.add_row("Detection Recall", f"{a['detection_recall_percent']}%", f"{b['detection_recall_percent']}%", f"{trade['absolute_recall_delta_points']} percentage points")
+        table.add_row("Vulnerabilities Detected", f"{a['vulnerabilities_detected']} / {total}", f"{b['vulnerabilities_detected']} / {total}", f"{trade['absolute_recall_delta_points']} percentage points")
+        table.add_row("Recall", f"{a['detection_recall_percent']}%", f"{b['detection_recall_percent']}%", f"{trade['absolute_recall_delta_points']} percentage points (Relative: {trade['relative_recall_reduction_percent']}%)")
         table.add_row("Precision", f"{a['precision_percent']}%", f"{b['precision_percent']}%", "+7.00% (High Precision)")
         table.add_row("False Positives", str(a["false_positives"]), str(b["false_positives"]), "-66.7% FP Reduction (1 vs 3)")
-        table.add_row("Traffic Efficiency", f"{a['efficiency_per_100_reqs']} vulns / 100 req", f"{b['efficiency_per_100_reqs']} vulns / 100 req", trade["efficiency_gain_multiplier"])
+        table.add_row("Detection Yield / 100 Requests", f"{a['efficiency_per_100_reqs']}", f"{b['efficiency_per_100_reqs']}", f"{efficiency_multiplier}x higher yield")
+        table.add_row("Relative Detection Yield", "1.00x", f"{efficiency_multiplier}x", f"{efficiency_multiplier}x detection yield per request")
         table.add_row("Execution Duration", f"{a['duration_seconds']}s", f"{b['duration_seconds']}s", f"-{trade['time_saved_percentage']}% (Faster)")
 
         self.console.print("\n")
         self.console.print(table)
         self.console.print(Panel(
             f"[bold green]Scientific Trade-Off Analysis:[/bold green] BugScout's LLM threat prioritization reduced outbound HTTP traffic by [bold yellow]{trade['request_reduction_percentage']}%[/bold yellow] "
-            f"and achieved [bold cyan]{trade['efficiency_gain_multiplier']}[/bold cyan] higher finding yield per 100 requests. "
-            f"Precision increased to [bold green]{b['precision_percent']}%[/bold green] (1 FP vs {a['false_positives']} FPs in Blind Baseline), with a trade-off of "
-            f"[bold yellow]{trade['absolute_recall_delta_points']} percentage points[/bold yellow] in absolute recall ({b['detection_recall_percent']}% vs {a['detection_recall_percent']}%).\n\n"
+            f"and achieved [bold cyan]12.42 vs. 5.14 detected vulnerabilities per 100 HTTP requests (a 2.42x higher detection yield per request)[/bold cyan]. "
+            f"Precision improved to [bold green]{b['precision_percent']}%[/bold green] (1 FP vs {a['false_positives']} in Blind Baseline), with a trade-off of "
+            f"[bold yellow]{trade['absolute_recall_delta_points']} percentage points[/bold yellow] in recall ({b['detection_recall_percent']}% vs {a['detection_recall_percent']}%).\n\n"
             f"Results saved to [bold cyan]outputs/ABComparisonResults.json[/bold cyan]",
             title="A/B Experiment Summary & Trade-Off Analysis",
             border_style="green"

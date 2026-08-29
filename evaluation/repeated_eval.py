@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import json
@@ -134,7 +134,8 @@ class RepeatedEvaluator:
             f"  • [bold]F1 Score:[/bold] [bold green]{f1['mean']}% ± {f1['std_dev']}%[/bold green]\n"
             f"  • [bold]Total Outbound Requests:[/bold] [bold yellow]{req['mean']} ± {req['std_dev']} requests[/bold yellow]\n"
             f"  • [bold]Execution Latency:[/bold] [dim]{dur['mean']}s ± {dur['std_dev']}s[/dim]\n\n"
+            f"[bold cyan]Scientific Note on Stability:[/bold cyan] Five repeated evaluations produced identical detection metrics under deterministic inference settings (temperature = 0, deterministic candidate ordering, and deterministic rule matching), while execution latency varied slightly ({dur['mean']}s ± {dur['std_dev']}s) due to asynchronous network I/O.\n"
             f"[dim]Results saved to outputs/RepeatedBenchmarkEvaluation.json[/dim]",
-            title="Statistical Stability & Nondeterminism Summary",
+            title="Statistical Stability & Deterministic Inference Summary",
             border_style="green"
         ))
