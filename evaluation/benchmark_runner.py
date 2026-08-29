@@ -63,6 +63,16 @@ class BenchmarkEvaluator:
         with open("outputs/BenchmarkEvaluation.json", "w", encoding="utf-8") as f:
             json.dump(results_summary, f, indent=2)
 
+        # Generate Reproducibility Manifest
+        from core.reproducibility import generate_reproducibility_manifest
+        generate_reproducibility_manifest(
+            experiment_name="46-Case Ground Truth Benchmark Evaluation",
+            benchmark_version="v2.1",
+            total_requests=context.stats.total_requests_sent,
+            findings_count=len(context.findings),
+            extra_metrics=results_summary.get("metrics")
+        )
+
         return results_summary
 
     def _calculate_metrics(self, context) -> Dict[str, Any]:
