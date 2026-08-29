@@ -33,7 +33,7 @@ from evaluation.consistency_validator import CrossFormatConsistencyValidator
 
 console = Console(highlight=False)
 
-BANNER = """[bold cyan]
+BANNER = r"""[bold cyan]
   ____               ____                 _   
  | __ ) _   _  __ _ / ___|  ___ ___  _   _| |_ 
  |  _ \| | | |/ _` |\___ \ / __/ _ \| | | | __|

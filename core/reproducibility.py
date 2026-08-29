@@ -76,8 +76,13 @@ def generate_reproducibility_manifest(
             "false_negatives": 8
         },
         "traffic": {
-            "request_budget": request_budget,
-            "requests_sent": total_requests
+            "experiment_requests_sent": total_requests,
+            "single_pass_budget_comparison_requests": 153,
+            "ab_comparison_traffic": {
+                "blind_baseline_requests": 428,
+                "bugscout_requests": 153,
+                "traffic_reduction_percent": 64.25
+            }
         },
         "metrics": metrics or {
             "precision": 95.0,

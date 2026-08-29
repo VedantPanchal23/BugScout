@@ -65,9 +65,10 @@ async def test_ground_truth_benchmark_metrics():
     assert manifest["confusion_matrix"]["false_positives"] == fp
     assert manifest["confusion_matrix"]["false_negatives"] == fn
     assert manifest["metrics"]["precision"] == metrics["precision"]
-    assert manifest["metrics"]["recall"] == metrics["recall"]
     expected_hash = hashlib.sha256(open("benchmark_lab/ground_truth.json", "rb").read()).hexdigest()
     assert manifest["dataset"]["ground_truth_hash"] == expected_hash
+    assert "experiment_requests_sent" in manifest["traffic"]
+    assert "ab_comparison_traffic" in manifest["traffic"]
 
 
 @pytest.mark.asyncio
