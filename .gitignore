@@ -1,0 +1,21 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.class
+.pytest_cache/
+
+# Outputs & Reports (sensitive scan outputs)
+outputs/*.json
+outputs/*.md
+!outputs/.gitkeep
+
+# Environment variables & secrets
+.env
+
+# Logs
+*.log
