@@ -1,4 +1,4 @@
-from __future__ import annotations
+ï»¿from __future__ import annotations
 
 import os
 import json
@@ -70,7 +70,7 @@ class ReportAgent(BaseAgent):
         info_count = sum(1 for f in findings if f.severity == Severity.INFORMATIONAL)
 
         lines = [
-            "# ??? BugScout — Autonomous Vulnerability Assessment Report",
+            "# [BugScout] Autonomous Vulnerability Assessment Report",
             "",
             f"**Target:** {self.context.target}  ",
             f"**Assessment Date:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}  ",
@@ -87,11 +87,11 @@ class ReportAgent(BaseAgent):
             "",
             "| Severity | Count |",
             "|:---|:---:|",
-            f"| ?? **Critical** | {crit_count} |",
-            f"| ?? **High** | {high_count} |",
-            f"| ?? **Medium** | {med_count} |",
-            f"| ?? **Low** | {low_count} |",
-            f"| ? **Informational** | {info_count} |",
+            f"| [Critical] | {crit_count} |",
+            f"| [High] | {high_count} |",
+            f"| [Medium] | {med_count} |",
+            f"| [Low] | {low_count} |",
+            f"| [Informational] | {info_count} |",
             f"| **Total Findings** | **{len(findings)}** |",
             "",
             "---",
@@ -118,16 +118,8 @@ class ReportAgent(BaseAgent):
             lines.append("*No security vulnerabilities were identified within the specified scope.*")
         else:
             for idx, f in enumerate(findings, 1):
-                severity_emoji = {
-                    Severity.CRITICAL: "??",
-                    Severity.HIGH: "??",
-                    Severity.MEDIUM: "??",
-                    Severity.LOW: "??",
-                    Severity.INFORMATIONAL: "?",
-                }.get(f.severity, "??")
-
                 lines.extend([
-                    f"### {idx}. {severity_emoji} {f.title} ({f.severity.value})",
+                    f"### {idx}. [{f.severity.value}] {f.title}",
                     "",
                     f"- **Vulnerability Class:** {f.vuln_class.value}",
                     f"- **CWE:** {f.cwe_id}",
@@ -177,7 +169,7 @@ class ReportAgent(BaseAgent):
         console = Console()
         findings = self.context.findings
 
-        table = Table(title="??? BugScout — Mission Findings Summary", header_style="bold cyan")
+        table = Table(title="BugScout â€” Mission Findings Summary", header_style="bold cyan")
         table.add_column("ID", style="dim", width=8)
         table.add_column("Severity", justify="center")
         table.add_column("Vulnerability Title")
@@ -207,7 +199,7 @@ class ReportAgent(BaseAgent):
         console.print(table)
         console.print(Panel(
             f"[bold green]Mission Complete![/bold green] Total Requests: {self.context.stats.total_requests_sent} | Endpoints: {len(self.context.endpoint_map)} | Findings: {len(findings)} | Duration: {self.context.stats.duration_seconds:.2f}s\n"
-            f"?? Reports saved to [bold cyan]outputs/VulnerabilityReport.md[/bold cyan] and [bold cyan]outputs/VulnerabilityReport.json[/bold cyan]",
+            f"Reports saved to [bold cyan]outputs/VulnerabilityReport.md[/bold cyan] and [bold cyan]outputs/VulnerabilityReport.json[/bold cyan]",
             title="Scan Summary",
             border_style="green"
         ))

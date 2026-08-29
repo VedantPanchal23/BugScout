@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import time
 from enum import Enum
@@ -74,6 +74,7 @@ class Hypothesis(BaseModel):
 
 
 class TestResult(BaseModel):
+    __test__ = False  # Prevent pytest from treating this model as a test suite
     id: str
     hypothesis_id: str
     endpoint_id: str

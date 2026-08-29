@@ -1,4 +1,4 @@
-# BugScout Scope Configuration
+﻿# BugScout Scope Configuration
 # Mandatory ethical boundary file for autonomous testing.
 
 target: "http://127.0.0.1:8888"
@@ -8,18 +8,23 @@ allowed_hosts:
   - "localhost"
 
 allowed_paths:
+  - "/"
   - "/api/*"
   - "/search"
   - "/login"
   - "/debug/*"
   - "/.env"
+  - "/robots.txt"
+  - "/sitemap.xml"
+  - "/openapi.json"
+  - "/static/*"
 
 excluded_test_types:
   - "brute_force"
   - "dos"
 
 # Rate Limiting & Safety Controls
-max_requests_per_minute: 60
+max_requests_per_minute: 120
 max_total_requests: 300
 max_crawl_depth: 3
 allow_localhost_for_testing: true

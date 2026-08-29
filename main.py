@@ -1,7 +1,16 @@
-from __future__ import annotations
+ï»¿from __future__ import annotations
 
 import os
 import sys
+
+# Ensure UTF-8 console output on Windows
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import time
 import asyncio
 import argparse
@@ -13,7 +22,7 @@ from core.pipeline import BugScoutPipeline
 from core.scope_guard import ScopeViolationError
 from core.llm import LLMManager, GroqProvider, GeminiProvider, HuggingFaceProvider, HeuristicSecurityEngine
 
-console = Console()
+console = Console(highlight=False)
 
 BANNER = """[bold cyan]
   ____               ____                 _   
@@ -23,7 +32,7 @@ BANNER = """[bold cyan]
  |____/ \__,_|\__, ||____/ \___\___/ \__,_|\__|
               |___/                            
 [/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout[/bold white]
-[dim]Zero-Cost • Ethical Boundary Enforcement • Agentic AI Pipeline[/dim]
+[dim]Zero-Cost | Ethical Boundary Enforcement | Agentic AI Pipeline[/dim]
 """
 
 
@@ -41,7 +50,7 @@ def start_mock_server_background():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BugScout — Autonomous Bug Bounty Scout")
+    parser = argparse.ArgumentParser(description="BugScout - Autonomous Bug Bounty Scout")
     parser.add_argument("--config", default="config/scope.yaml", help="Path to scope.yaml config")
     parser.add_argument("--target", default=None, help="Override target URL in scope")
     parser.add_argument("--demo", action="store_true", help="Run local end-to-end demo against built-in mock target")
@@ -55,9 +64,9 @@ async def main_async():
     console.print(BANNER)
 
     if args.demo:
-        console.print("[bold yellow]? Demo Mode Activated:[/bold yellow] Initializing built-in vulnerable test target at [cyan]http://127.0.0.1:8888[/cyan]...")
+        console.print("[bold yellow][*] Demo Mode Activated:[/bold yellow] Initializing built-in vulnerable test target at [cyan]http://127.0.0.1:8888[/cyan]...")
         start_mock_server_background()
-        console.print("[bold green]?[/bold green] Mock target server running in background.\n")
+        console.print("[bold green][+] Mock target server running in background.[/bold green]\n")
 
     # Select LLM provider
     custom_llm = None
