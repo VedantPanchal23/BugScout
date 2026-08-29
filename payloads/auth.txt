@@ -1,0 +1,7 @@
+Bearer null
+Bearer undefined
+Bearer expired
+admin
+root
+role=admin
+is_admin=1

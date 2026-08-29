@@ -1,0 +1,7 @@
+<scout_xss_marker_1>
+"><scout_xss_marker_2>
+<script>/*scout_probe*/</script>
+<img src=x onerror="/*scout_probe*/">
+javascript:/*scout_probe*/
+"><img src=x onerror=prompt(1)>
+"><svg onload=alert(1)>

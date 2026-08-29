@@ -1,0 +1,10 @@
+/.env
+/.git/HEAD
+/debug/config
+/actuator/health
+/swagger.json
+/openapi.json
+/phpinfo.php
+/server-status
+/api-docs
+/.well-known/security.txt
