@@ -3,7 +3,8 @@
 import os
 import json
 import time
-from enum import Enum
+from datetime import datetime, timezone
+from enum import Enum, IntEnum
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 
@@ -21,6 +22,14 @@ class Confidence(str, Enum):
     LIKELY = "Likely"
     POTENTIAL = "Potential"
     FALSE_POSITIVE = "False Positive"
+
+
+class EvidenceLevel(IntEnum):
+    LEVEL_0_NONE = 0            # No evidence / identical to baseline
+    LEVEL_1_SUSPICIOUS = 1      # Suspicious status code or body length delta
+    LEVEL_2_ANOMALY = 2         # Behavioral timing/structural anomaly
+    LEVEL_3_STRONG = 3          # Strong indicator (database error, unescaped tag)
+    LEVEL_4_VALIDATED = 4       # Validated exploit proof / reproducible security impact
 
 
 class VulnClass(str, Enum):
@@ -48,6 +57,9 @@ class AuthConfig(BaseModel):
     token_prefix: str = "Bearer "
     cookie_name: Optional[str] = None
     auto_refresh: bool = True
+    # Two-identity authorization context for IDOR testing
+    user_a_token: Optional[str] = None
+    user_b_token: Optional[str] = None
 
 
 class WAFInfo(BaseModel):
@@ -56,6 +68,24 @@ class WAFInfo(BaseModel):
     signatures_matched: List[str] = Field(default_factory=list)
     polite_mode_active: bool = False
     adaptive_delay_seconds: float = 0.0
+
+
+class TokenUsageStats(BaseModel):
+    llm_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    inference_duration_seconds: float = 0.0
+
+
+class AuditLogEntry(BaseModel):
+    timestamp: str
+    agent: str
+    action: str
+    target: str
+    decision: str
+    reason: str
+    evidence_level: Optional[int] = None
 
 
 class ScopeConfig(BaseModel):
@@ -131,6 +161,7 @@ class TestResult(BaseModel):
     anomaly_detected: bool = False
     anomaly_type: Optional[str] = None
     anomaly_details: Optional[str] = None
+    evidence_level: EvidenceLevel = EvidenceLevel.LEVEL_0_NONE
 
 
 class Finding(BaseModel):
@@ -148,8 +179,12 @@ class Finding(BaseModel):
     reproduction_curl: str
     reproduction_steps: List[str] = Field(default_factory=list)
     evidence: str
+    evidence_level: EvidenceLevel = EvidenceLevel.LEVEL_4_VALIDATED
     remediation: str
     confidence: Confidence = Confidence.LIKELY
+    confidence_score: float = 0.90
+    why_tested: str = ""
+    why_reported: str = ""
     iteration_discovered: int = 1
 
 
@@ -167,6 +202,19 @@ class MissionStats(BaseModel):
     checkpoints_saved: int = 0
 
 
+class ScanManifest(BaseModel):
+    scanner_version: str = "3.5.0-academic"
+    benchmark_version: str = "2.0-groundtruth"
+    model: str = "groq/qwen-3.8-27b"
+    scan_start: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    scan_end: Optional[str] = None
+    target: str = ""
+    scope_allowed_hosts: List[str] = Field(default_factory=list)
+    request_count: int = 0
+    findings_count: int = 0
+    evidence_level_distribution: Dict[str, int] = Field(default_factory=dict)
+
+
 class MissionContext(BaseModel):
     target: str
     scope: ScopeConfig
@@ -176,6 +224,8 @@ class MissionContext(BaseModel):
     findings: List[Finding] = Field(default_factory=list)
     waf_info: WAFInfo = Field(default_factory=WAFInfo)
     stats: MissionStats = Field(default_factory=MissionStats)
+    token_stats: TokenUsageStats = Field(default_factory=TokenUsageStats)
+    audit_trail: List[AuditLogEntry] = Field(default_factory=list)
     current_iteration: int = 1
     max_iterations: int = 2
     replanning_triggered: bool = False
@@ -189,6 +239,18 @@ class MissionContext(BaseModel):
             "message": message
         })
 
+    def record_audit(self, agent: str, action: str, target: str, decision: str, reason: str, evidence_level: Optional[int] = None) -> None:
+        entry = AuditLogEntry(
+            timestamp=datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3],
+            agent=agent,
+            action=action,
+            target=target,
+            decision=decision,
+            reason=reason,
+            evidence_level=evidence_level
+        )
+        self.audit_trail.append(entry)
+
     def save_checkpoint(self, path: Optional[str] = None) -> str:
         target_path = path or self.scope.checkpoint_path
         os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
@@ -199,6 +261,6 @@ class MissionContext(BaseModel):
 
     @classmethod
     def load_checkpoint(cls, path: str) -> MissionContext:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         return cls(**data)

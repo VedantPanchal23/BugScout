@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import json
@@ -16,7 +16,7 @@ from benchmark_lab.server import benchmark_app
 
 class BenchmarkEvaluator:
     """
-    Evaluates BugScout against the controlled Ground Truth Security Benchmark Lab.
+    Evaluates BugScout against the expanded 60+ case Ground Truth Security Benchmark Lab.
     Calculates exact confusion matrix metrics:
     - True Positives (TP)
     - False Positives (FP)
@@ -47,10 +47,10 @@ class BenchmarkEvaluator:
         self.console.print("[bold white]   BUGSCOUT GROUND-TRUTH SECURITY BENCHMARK & EVALUATION LAB   [/bold white]")
         self.console.print("[bold cyan]================================================================[/bold cyan]\n")
 
-        self.console.print(f"[bold yellow][*] Initializing Ground-Truth Benchmark Lab on {self.target_url}...[/bold yellow]")
+        self.console.print(f"[bold yellow][*] Initializing Ground-Truth Benchmark Lab v2.0 on {self.target_url}...[/bold yellow]")
         self.start_lab_server()
 
-        self.console.print("[bold yellow][*] Executing Autonomous Multi-Agent Scan against Benchmark Lab...[/bold yellow]\n")
+        self.console.print("[bold yellow][*] Executing 6-Agent Autonomous Scan against 60+ Benchmark Suite...[/bold yellow]\n")
         pipeline = BugScoutPipeline(target_override=self.target_url, max_iterations=2)
         context = await pipeline.run()
 
@@ -68,7 +68,7 @@ class BenchmarkEvaluator:
     def _calculate_metrics(self, context) -> Dict[str, Any]:
         vuln_targets = self.ground_truth.get("vulnerabilities", [])
         decoy_targets = self.ground_truth.get("safe_negative_decoys", [])
-        total_known_endpoints = self.ground_truth.get("total_known_endpoints", 25)
+        total_known_endpoints = self.ground_truth.get("total_known_endpoints", 45)
 
         findings = context.findings
 
@@ -102,7 +102,8 @@ class BenchmarkEvaluator:
                     "result": "TP (True Positive)",
                     "severity": detected_finding.severity.value,
                     "cvss": detected_finding.cvss_score,
-                    "confidence": detected_finding.confidence.value
+                    "confidence": detected_finding.confidence.value,
+                    "evidence_level": detected_finding.evidence_level.value
                 })
             else:
                 fn_list.append(test_id)
@@ -115,7 +116,8 @@ class BenchmarkEvaluator:
                     "result": "FN (False Negative)",
                     "severity": "N/A",
                     "cvss": 0.0,
-                    "confidence": "N/A"
+                    "confidence": "N/A",
+                    "evidence_level": 0
                 })
 
         # 2. Evaluate Safe Negative Decoys (TN & FP)
@@ -145,7 +147,8 @@ class BenchmarkEvaluator:
                     "result": "FP (False Positive)",
                     "severity": flagged_finding.severity.value,
                     "cvss": flagged_finding.cvss_score,
-                    "confidence": flagged_finding.confidence.value
+                    "confidence": flagged_finding.confidence.value,
+                    "evidence_level": flagged_finding.evidence_level.value
                 })
             else:
                 tn_list.append(test_id)
@@ -158,7 +161,8 @@ class BenchmarkEvaluator:
                     "result": "TN (True Negative)",
                     "severity": "None",
                     "cvss": 0.0,
-                    "confidence": "Rejected"
+                    "confidence": "Rejected",
+                    "evidence_level": 0
                 })
 
         tp = len(tp_list)
@@ -179,7 +183,8 @@ class BenchmarkEvaluator:
                 "true_positives": tp,
                 "false_positives": fp,
                 "false_negatives": fn,
-                "true_negatives": tn
+                "true_negatives": tn,
+                "total_evaluated_cases": tp + fn + fp + tn
             },
             "metrics": {
                 "precision": round(precision * 100, 2),
@@ -203,8 +208,8 @@ class BenchmarkEvaluator:
         stats = data["scan_stats"]
 
         self.console.print("\n")
-        table = Table(title="BugScout Security Benchmark Lab — Ground Truth Test Matrix (T01 - T10 & Decoys)", header_style="bold cyan")
-        table.add_column("Test ID", style="bold yellow", width=8)
+        table = Table(title=f"BugScout Security Benchmark Lab — Ground Truth Matrix ({cm['total_evaluated_cases']} Cases)", header_style="bold cyan")
+        table.add_column("Test ID", style="bold yellow", width=10)
         table.add_column("Test Case Name")
         table.add_column("Endpoint", style="dim")
         table.add_column("Present?", justify="center")
@@ -231,7 +236,7 @@ class BenchmarkEvaluator:
         f1_color = "bold green" if metrics["f1_score"] >= 80 else "bold yellow"
 
         summary_text = (
-            f"[bold white]Ground-Truth Empirical Metrics:[/bold white]\n"
+            f"[bold white]Ground-Truth Empirical Evaluation Summary ({cm['total_evaluated_cases']} Total Evaluated Cases):[/bold white]\n"
             f"  • [bold]True Positives (TP):[/bold] {cm['true_positives']} | [bold]True Negatives (TN):[/bold] {cm['true_negatives']}\n"
             f"  • [bold]False Positives (FP):[/bold] {cm['false_positives']} | [bold]False Negatives (FN):[/bold] {cm['false_negatives']}\n\n"
             f"  • [bold]Precision:[/bold] [{p_color}]{metrics['precision']}%[/{p_color}]  (TP / (TP + FP))\n"
@@ -239,6 +244,7 @@ class BenchmarkEvaluator:
             f"  • [bold]F1 Score:[/bold] [{f1_color}]{metrics['f1_score']}%[/{f1_color}]  (Harmonic Mean)\n"
             f"  • [bold]Specificity (Negative Rejection):[/bold] [bold green]{metrics['specificity']}%[/bold green]  (TN / (TN + FP))\n"
             f"  • [bold]Endpoint Discovery Recall:[/bold] [bold green]{metrics['endpoint_discovery_recall']}%[/bold green] ({stats['total_endpoints_discovered']} endpoints)\n\n"
+            f"[dim]Note: Metrics reflect performance on the controlled ground-truth benchmark and should not be interpreted as universal general-world detection accuracy.[/dim]\n"
             f"[dim]Total Requests: {stats['total_requests_sent']} | Scan Duration: {stats['duration_seconds']}s | Output: outputs/BenchmarkEvaluation.json[/dim]"
         )
 

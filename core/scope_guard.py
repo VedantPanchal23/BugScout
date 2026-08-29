@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import ipaddress
@@ -216,10 +216,10 @@ class ScopeGuard:
             # Passed checks -> Reset consecutive block counter
             self.consecutive_blocks = 0
 
-            # 4. Token-bucket rate limiting
+            # 4. Token-bucket rate limiting (only enforced for remote targets)
             now = time.time()
             self.request_timestamps = [ts for ts in self.request_timestamps if now - ts < 60.0]
-            if len(self.request_timestamps) >= self.config.max_requests_per_minute:
+            if not self.config.allow_localhost_for_testing and len(self.request_timestamps) >= self.config.max_requests_per_minute:
                 sleep_needed = 60.0 - (now - self.request_timestamps[0]) + 0.05
                 if sleep_needed > 0:
                     await asyncio.sleep(sleep_needed)

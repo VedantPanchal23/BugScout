@@ -18,12 +18,15 @@ import threading
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.table import Table
 
 from core.pipeline import BugScoutPipeline
 from core.scope_guard import ScopeViolationError
 from core.llm import LLMManager, GroqProvider, GeminiProvider, HuggingFaceProvider, HeuristicSecurityEngine
 from evaluation.benchmark_runner import BenchmarkEvaluator
 from evaluation.ab_comparison import ABComparisonRunner
+from evaluation.ablation_study import AblationStudyRunner
+from evaluation.safety_tester import SafetySuiteRunner
 from evaluation.consistency_validator import CrossFormatConsistencyValidator
 
 console = Console(highlight=False)
@@ -35,8 +38,8 @@ BANNER = """[bold cyan]
  | |_) | |_| | (_| | ___) | (_| (_) | |_| | |_ 
  |____/ \__,_|\__, ||____/ \___\___/ \__,_|\__|
               |___/                            
-[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.5[/bold white]
-[dim]Zero-Cost | Ground-Truth Evaluated | SARIF 2.1.0 | A/B Benchmarked[/dim]
+[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.5 (Academic Edition)[/bold white]
+[dim]Zero-Cost | 60+ Case Ground Truth Benchmark | 4-Tier Ablation | ScopeGuard Audit[/dim]
 """
 
 
@@ -49,18 +52,21 @@ def start_mock_server_background():
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    time.sleep(1.0)  # Allow server to initialize
+    time.sleep(1.0)
     return server
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BugScout - Autonomous Bug Bounty Scout Platform")
+    parser = argparse.ArgumentParser(description="BugScout - Autonomous Multi-Agent Security Platform")
     parser.add_argument("url_pos", nargs="?", default=None, help="Target URL to scout (e.g. https://example.com)")
     parser.add_argument("--url", "--target", dest="target", default=None, help="Target URL to scout")
     parser.add_argument("--config", default="config/scope.yaml", help="Path to scope.yaml config")
     parser.add_argument("--demo", action="store_true", help="Run local end-to-end demo against built-in mock target")
-    parser.add_argument("--evaluate", "--benchmark", action="store_true", help="Run Ground Truth Benchmark Evaluation and compute Precision/Recall/F1")
-    parser.add_argument("--compare-modes", action="store_true", help="Run A/B Comparison Experiment: Blind Scanner vs Agentic BugScout")
+    parser.add_argument("--evaluate", "--benchmark", action="store_true", help="Run 60+ Case Ground Truth Benchmark Evaluation")
+    parser.add_argument("--compare-modes", action="store_true", help="Run A/B Comparison Experiment: Blind Baseline vs Agentic AI")
+    parser.add_argument("--ablation", action="store_true", help="Run 4-Tier Component Ablation Study")
+    parser.add_argument("--safety-test", action="store_true", help="Run ScopeGuard Ethical Firewall & SSRF Safety Audit Suite")
+    parser.add_argument("--trace", action="store_true", help="Display full explainable agent decision trail and audit log")
     parser.add_argument("--validate-consistency", action="store_true", help="Validate cross-format parity across SARIF, HTML, JSON, and MD")
     parser.add_argument("--iterations", type=int, default=2, help="Max agentic feedback loop iterations")
     parser.add_argument("--llm", default="auto", choices=["auto", "groq", "gemini", "hf", "heuristic"], help="LLM backend selection")
@@ -85,7 +91,19 @@ async def main_async():
         await ab_runner.run_comparison()
         return
 
-    # 3. Cross-Format Consistency Validation Mode
+    # 3. 4-Tier Component Ablation Study Mode
+    if args.ablation:
+        ablation_runner = AblationStudyRunner()
+        await ablation_runner.run_ablation_study()
+        return
+
+    # 4. ScopeGuard Safety Suite Mode
+    if args.safety_test:
+        safety_runner = SafetySuiteRunner()
+        await safety_runner.run_safety_tests()
+        return
+
+    # 5. Cross-Format Consistency Validation Mode
     if args.validate_consistency:
         validator = CrossFormatConsistencyValidator()
         valid, report = validator.validate()
@@ -157,7 +175,30 @@ async def main_async():
             checkpoint_path=args.checkpoint
         )
 
-        await pipeline.run()
+        context = await pipeline.run()
+
+        # Display explainable decision trace if --trace is set
+        if args.trace:
+            console.print("\n")
+            trace_table = Table(title="BugScout Explainable Agent Decision Audit Trail", header_style="bold cyan")
+            trace_table.add_column("Time", style="dim", width=12)
+            trace_table.add_column("Agent", style="bold yellow", width=16)
+            trace_table.add_column("Action", width=22)
+            trace_table.add_column("Target / Endpoint", style="dim")
+            trace_table.add_column("Decision", justify="center")
+            trace_table.add_column("Reason / Explainability Rationale")
+
+            for entry in context.audit_trail:
+                dec_style = "bold green" if entry.decision in ["CONFIRMED", "ALLOWED", "AUTHENTICATED", "COMPLETE"] else "bold yellow"
+                trace_table.add_row(
+                    entry.timestamp,
+                    entry.agent,
+                    entry.action,
+                    entry.target,
+                    f"[{dec_style}]{entry.decision}[/{dec_style}]",
+                    entry.reason
+                )
+            console.print(trace_table)
 
     except ScopeViolationError as sve:
         console.print(Panel(

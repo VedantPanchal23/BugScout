@@ -1,219 +1,65 @@
 ﻿{
-  "benchmark_name": "BugScout Security Benchmark Lab v1.0",
-  "total_known_endpoints": 25,
+  "benchmark_name": "BugScout Academic Security Benchmark Lab v2.0",
+  "benchmark_version": "2.0-groundtruth",
+  "total_known_endpoints": 45,
   "vulnerabilities": [
-    {
-      "test_id": "T01",
-      "name": "SQL Injection",
-      "vuln_class": "SQL Injection",
-      "cwe_id": "CWE-89",
-      "path": "/api/products",
-      "method": "GET",
-      "parameter": "search",
-      "is_vulnerable": true,
-      "expected_severity": "High",
-      "evidence_pattern": "sqlite3.OperationalError"
-    },
-    {
-      "test_id": "T02",
-      "name": "Reflected XSS",
-      "vuln_class": "Cross-Site Scripting (XSS)",
-      "cwe_id": "CWE-79",
-      "path": "/search",
-      "method": "GET",
-      "parameter": "q",
-      "is_vulnerable": true,
-      "expected_severity": "Medium",
-      "evidence_pattern": "<scout_xss_marker"
-    },
-    {
-      "test_id": "T03",
-      "name": "CORS Misconfiguration",
-      "vuln_class": "CORS Misconfiguration",
-      "cwe_id": "CWE-346",
-      "path": "/api/user/private-data",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": true,
-      "expected_severity": "High",
-      "evidence_pattern": "Access-Control-Allow-Origin"
-    },
-    {
-      "test_id": "T04",
-      "name": "Missing Security Headers",
-      "vuln_class": "Missing Critical Security Headers / Clickjacking",
-      "cwe_id": "CWE-1021",
-      "path": "/",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": true,
-      "expected_severity": "Low",
-      "evidence_pattern": "Missing Headers"
-    },
-    {
-      "test_id": "T05",
-      "name": "GraphQL Schema Introspection",
-      "vuln_class": "GraphQL Schema Introspection Enabled",
-      "cwe_id": "CWE-200",
-      "path": "/graphql",
-      "method": "POST",
-      "parameter": null,
-      "is_vulnerable": true,
-      "expected_severity": "Medium",
-      "evidence_pattern": "__schema"
-    },
-    {
-      "test_id": "T06",
-      "name": "Insecure Direct Object Reference",
-      "vuln_class": "Insecure Direct Object Reference (IDOR)",
-      "cwe_id": "CWE-639",
-      "path": "/api/user/profile",
-      "method": "GET",
-      "parameter": "id",
-      "is_vulnerable": true,
-      "expected_severity": "High",
-      "evidence_pattern": "bob_admin"
-    },
-    {
-      "test_id": "T07",
-      "name": "Open URL Redirection",
-      "vuln_class": "Open URL Redirection",
-      "cwe_id": "CWE-601",
-      "path": "/redirect",
-      "method": "GET",
-      "parameter": "url",
-      "is_vulnerable": true,
-      "expected_severity": "Medium",
-      "evidence_pattern": "Location:"
-    },
-    {
-      "test_id": "T08",
-      "name": "Path / Directory Traversal",
-      "vuln_class": "Path / Directory Traversal",
-      "cwe_id": "CWE-22",
-      "path": "/api/download",
-      "method": "GET",
-      "parameter": "file",
-      "is_vulnerable": true,
-      "expected_severity": "High",
-      "evidence_pattern": "root:x:0:0"
-    },
-    {
-      "test_id": "T09",
-      "name": "Exposed Secrets & Environment",
-      "vuln_class": "Sensitive Data Exposure",
-      "cwe_id": "CWE-200",
-      "path": "/.env",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": true,
-      "expected_severity": "Critical",
-      "evidence_pattern": "DB_PASSWORD"
-    },
-    {
-      "test_id": "T10",
-      "name": "Broken Authentication",
-      "vuln_class": "Broken Authentication / Missing Auth",
-      "cwe_id": "CWE-306",
-      "path": "/api/admin/dashboard",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": true,
-      "expected_severity": "High",
-      "evidence_pattern": "admin_access_granted"
-    }
+    { "test_id": "SQLi-01", "name": "SQL Injection (GET Search Query)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/api/products", "method": "GET", "parameter": "search", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+    { "test_id": "SQLi-02", "name": "SQL Injection (POST Form Parameter)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/api/v2/search", "method": "POST", "parameter": "query", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+    { "test_id": "SQLi-03", "name": "SQL Injection (POST JSON Filter)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/api/v2/items", "method": "POST", "parameter": "filter", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+    { "test_id": "SQLi-04", "name": "SQL Injection (Numeric ID Parameter)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/api/orders", "method": "GET", "parameter": "id", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+    { "test_id": "SQLi-05", "name": "SQL Injection (Order By / Analytics Metric)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/api/analytics", "method": "GET", "parameter": "metric", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+
+    { "test_id": "XSS-01", "name": "Reflected XSS (HTML Body Context)", "vuln_class": "Cross-Site Scripting (XSS)", "cwe_id": "CWE-79", "path": "/search", "method": "GET", "parameter": "q", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "<scout_xss_marker" },
+    { "test_id": "XSS-02", "name": "Reflected XSS (Attribute Context)", "vuln_class": "Cross-Site Scripting (XSS)", "cwe_id": "CWE-79", "path": "/profile/view", "method": "GET", "parameter": "user", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "<scout_xss_marker" },
+    { "test_id": "XSS-03", "name": "Reflected XSS (JavaScript Context)", "vuln_class": "Cross-Site Scripting (XSS)", "cwe_id": "CWE-79", "path": "/app/config", "method": "GET", "parameter": "theme", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "<scout_xss_marker" },
+
+    { "test_id": "CORS-01", "name": "CORS Misconfiguration (Wildcard + Credentials)", "vuln_class": "CORS Misconfiguration", "cwe_id": "CWE-346", "path": "/api/user/private-data", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "Access-Control-Allow-Origin" },
+    { "test_id": "CORS-02", "name": "CORS Misconfiguration (Reflected Origin)", "vuln_class": "CORS Misconfiguration", "cwe_id": "CWE-346", "path": "/api/v2/user-session", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "Access-Control-Allow-Origin" },
+    { "test_id": "CORS-03", "name": "CORS Misconfiguration (Null Origin Allowed)", "vuln_class": "CORS Misconfiguration", "cwe_id": "CWE-346", "path": "/api/v2/cors-null", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "Access-Control-Allow-Origin: null" },
+
+    { "test_id": "IDOR-01", "name": "Two-User IDOR (Profile Cross-Account Exposure)", "vuln_class": "Insecure Direct Object Reference (IDOR)", "cwe_id": "CWE-639", "path": "/api/user/profile", "method": "GET", "parameter": "id", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "bob_admin" },
+    { "test_id": "IDOR-02", "name": "Two-User IDOR (Order Invoice Cross-Account)", "vuln_class": "Insecure Direct Object Reference (IDOR)", "cwe_id": "CWE-639", "path": "/api/v2/orders", "method": "GET", "parameter": "order_id", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "customer_ssn" },
+
+    { "test_id": "AUTH-01", "name": "Broken Auth (Unauthenticated Admin Dashboard)", "vuln_class": "Broken Authentication / Missing Auth", "cwe_id": "CWE-306", "path": "/api/admin/dashboard", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "admin_access_granted" },
+    { "test_id": "AUTH-02", "name": "Broken Auth (Unauthenticated Admin Config)", "vuln_class": "Broken Authentication / Missing Auth", "cwe_id": "CWE-306", "path": "/api/v2/admin/config", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "jwt_secret" },
+
+    { "test_id": "TRAV-01", "name": "Path Traversal (Standard ../ File Inclusion)", "vuln_class": "Path / Directory Traversal", "cwe_id": "CWE-22", "path": "/api/download", "method": "GET", "parameter": "file", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "root:x:0:0" },
+    { "test_id": "TRAV-02", "name": "Path Traversal (Encoded %2e%2e Traversal)", "vuln_class": "Path / Directory Traversal", "cwe_id": "CWE-22", "path": "/api/v2/read-log", "method": "GET", "parameter": "path", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "root:x:0:0" },
+    { "test_id": "TRAV-03", "name": "Path Traversal (Windows win.ini Inclusion)", "vuln_class": "Path / Directory Traversal", "cwe_id": "CWE-22", "path": "/api/v2/system-file", "method": "GET", "parameter": "name", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "[boot loader]" },
+
+    { "test_id": "RED-01", "name": "Open URL Redirection (Query Parameter)", "vuln_class": "Open URL Redirection", "cwe_id": "CWE-601", "path": "/redirect", "method": "GET", "parameter": "url", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "Location:" },
+    { "test_id": "RED-02", "name": "Open URL Redirection (Goto Parameter)", "vuln_class": "Open URL Redirection", "cwe_id": "CWE-601", "path": "/goto", "method": "GET", "parameter": "dest", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "Location:" },
+
+    { "test_id": "SEC-01", "name": "Sensitive Credential Leak (.env File)", "vuln_class": "Sensitive Data Exposure", "cwe_id": "CWE-200", "path": "/.env", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "Critical", "evidence_pattern": "DB_PASSWORD" },
+    { "test_id": "SEC-02", "name": "Sensitive Secret Exposure (config.json)", "vuln_class": "Sensitive Data Exposure", "cwe_id": "CWE-200", "path": "/config.json", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "Critical", "evidence_pattern": "stripe_secret" },
+
+    { "test_id": "GQL-01", "name": "GraphQL Schema Introspection Enabled", "vuln_class": "GraphQL Schema Introspection Enabled", "cwe_id": "CWE-200", "path": "/graphql", "method": "POST", "parameter": null, "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "__schema" },
+    { "test_id": "HDR-01", "name": "Missing Critical Security Headers", "vuln_class": "Missing Critical Security Headers / Clickjacking", "cwe_id": "CWE-1021", "path": "/", "method": "GET", "parameter": null, "is_vulnerable": true, "expected_severity": "Low", "evidence_pattern": "Missing Headers" },
+
+    { "test_id": "HIDDEN-01", "name": "Unseen Generalization (Catalog Query SQLi)", "vuln_class": "SQL Injection", "cwe_id": "CWE-89", "path": "/catalog/item", "method": "GET", "parameter": "query", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "sqlite3.OperationalError" },
+    { "test_id": "HIDDEN-02", "name": "Unseen Generalization (Portal View XSS)", "vuln_class": "Cross-Site Scripting (XSS)", "cwe_id": "CWE-79", "path": "/portal/view", "method": "GET", "parameter": "name", "is_vulnerable": true, "expected_severity": "Medium", "evidence_pattern": "<scout_xss_marker" },
+    { "test_id": "HIDDEN-03", "name": "Unseen Generalization (Legacy Read Traversal)", "vuln_class": "Path / Directory Traversal", "cwe_id": "CWE-22", "path": "/legacy/read", "method": "GET", "parameter": "doc", "is_vulnerable": true, "expected_severity": "High", "evidence_pattern": "root:x:0:0" }
   ],
   "safe_negative_decoys": [
-    {
-      "test_id": "T01-N",
-      "name": "Safe Parameterized Search",
-      "path": "/api/safe-search",
-      "method": "GET",
-      "parameter": "q",
-      "is_vulnerable": false,
-      "reason": "Uses parameterized database query; no SQL syntax errors leaked."
-    },
-    {
-      "test_id": "T02-N",
-      "name": "Safe Encoded Echo",
-      "path": "/safe-echo",
-      "method": "GET",
-      "parameter": "name",
-      "is_vulnerable": false,
-      "reason": "HTML entity encodes all user input; unescaped script reflection rejected."
-    },
-    {
-      "test_id": "T03-N",
-      "name": "Safe Whitelisted CORS",
-      "path": "/api/safe-cors",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": false,
-      "reason": "Does not reflect untrusted origins; uses fixed trusted origin."
-    },
-    {
-      "test_id": "T04-N",
-      "name": "Safe Hardened Headers",
-      "path": "/safe-headers",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": false,
-      "reason": "Sets X-Frame-Options: DENY and Content-Security-Policy headers."
-    },
-    {
-      "test_id": "T05-N",
-      "name": "Safe Production GraphQL",
-      "path": "/safe-graphql",
-      "method": "POST",
-      "parameter": null,
-      "is_vulnerable": false,
-      "reason": "Introspection queries return 400 GraphQL Introspection Disabled."
-    },
-    {
-      "test_id": "T06-N",
-      "name": "Safe Session-Validated Profile",
-      "path": "/api/safe-profile",
-      "method": "GET",
-      "parameter": "id",
-      "is_vulnerable": false,
-      "reason": "Validates session ownership; returns 403 for unauthorized ID mutations."
-    },
-    {
-      "test_id": "T07-N",
-      "name": "Safe Whitelisted Redirect",
-      "path": "/safe-redirect",
-      "method": "GET",
-      "parameter": "url",
-      "is_vulnerable": false,
-      "reason": "Validates destination against whitelist; rejects third-party external origins."
-    },
-    {
-      "test_id": "T08-N",
-      "name": "Safe Sanitized File Download",
-      "path": "/api/safe-download",
-      "method": "GET",
-      "parameter": "file",
-      "is_vulnerable": false,
-      "reason": "Applies os.path.basename and strict directory boundary isolation."
-    },
-    {
-      "test_id": "T09-N",
-      "name": "Safe Public Information",
-      "path": "/safe-info",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": false,
-      "reason": "Public application metadata without secrets or credentials."
-    },
-    {
-      "test_id": "T10-N",
-      "name": "Safe Protected Admin Route",
-      "path": "/api/admin/secure",
-      "method": "GET",
-      "parameter": null,
-      "is_vulnerable": false,
-      "reason": "Strict authorization required; returns 401 Unauthorized without token."
-    }
+    { "test_id": "SQLi-N01", "name": "Safe Parameterized Search", "path": "/api/safe-search", "method": "GET", "parameter": "q", "is_vulnerable": false, "reason": "Uses parameterized DB query; no syntax errors leaked." },
+    { "test_id": "SQLi-N02", "name": "Deceptive Text Decoy (Syntax String in JSON)", "path": "/api/safe-products", "method": "GET", "parameter": "desc", "is_vulnerable": false, "reason": "Returns static warning text; no actual SQL execution." },
+    { "test_id": "XSS-N01", "name": "Safe HTML-encoded Echo", "path": "/safe-echo", "method": "GET", "parameter": "name", "is_vulnerable": false, "reason": "HTML entity encodes all user input." },
+    { "test_id": "XSS-N02", "name": "Safe JSON Reflection (application/json)", "path": "/api/safe-json", "method": "GET", "parameter": "q", "is_vulnerable": false, "reason": "JSON API context; not HTML renderable." },
+    { "test_id": "CORS-N01", "name": "Safe Whitelisted Origin", "path": "/api/safe-cors", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Fixed corporate origin whitelist." },
+    { "test_id": "CORS-N02", "name": "Safe Wildcard Without Credentials", "path": "/api/safe-cors-no-creds", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Public data; no Access-Control-Allow-Credentials." },
+    { "test_id": "IDOR-N01", "name": "Safe Session-Validated Profile", "path": "/api/safe-profile", "method": "GET", "parameter": "id", "is_vulnerable": false, "reason": "Validates session ownership; returns 403 on mismatch." },
+    { "test_id": "IDOR-N02", "name": "Safe Intentionally Public Item Lookup", "path": "/api/public-catalog", "method": "GET", "parameter": "item_id", "is_vulnerable": false, "reason": "Public catalog API; no authorization required." },
+    { "test_id": "AUTH-N01", "name": "Safe Anonymous 401 Protected Admin", "path": "/api/admin/secure", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Anonymous request correctly returns 401 Unauthorized." },
+    { "test_id": "AUTH-N02", "name": "Safe Invalid Token 401 Response", "path": "/api/admin/invalid-token", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Malformed/invalid token rejected with 401." },
+    { "test_id": "AUTH-N03", "name": "Safe Expired Token 401 Response", "path": "/api/admin/expired-token", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Expired token rejected with 401." },
+    { "test_id": "AUTH-N04", "name": "Safe Role-Based 403 Forbidden Response", "path": "/api/admin/user-role", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Normal user role rejected with 403 Forbidden." },
+    { "test_id": "TRAV-N01", "name": "Safe Sanitized File Download (basename)", "path": "/api/safe-download", "method": "GET", "parameter": "file", "is_vulnerable": false, "reason": "Applies os.path.basename and directory boundary isolation." },
+    { "test_id": "TRAV-N02", "name": "Safe Whitelisted Document Download", "path": "/api/safe-docs", "method": "GET", "parameter": "doc", "is_vulnerable": false, "reason": "Strict document whitelist enforcement." },
+    { "test_id": "RED-N01", "name": "Safe Whitelisted Relative Redirect", "path": "/safe-redirect", "method": "GET", "parameter": "url", "is_vulnerable": false, "reason": "Enforces relative URL paths only." },
+    { "test_id": "RED-N02", "name": "Safe Internal Destination Whitelist", "path": "/safe-goto", "method": "GET", "parameter": "dest", "is_vulnerable": false, "reason": "Rejects external attacker domains." },
+    { "test_id": "SEC-N01", "name": "Safe Public Information Endpoint", "path": "/safe-info", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Public application status without credentials." },
+    { "test_id": "GQL-N01", "name": "Safe Production GraphQL (Disabled)", "path": "/safe-graphql", "method": "POST", "parameter": null, "is_vulnerable": false, "reason": "Schema introspection queries return 400 disabled." },
+    { "test_id": "HDR-N01", "name": "Safe Hardened Headers (DENY + CSP)", "path": "/safe-headers", "method": "GET", "parameter": null, "is_vulnerable": false, "reason": "Sets X-Frame-Options: DENY and CSP headers." }
   ],
   "agent_behavior_targets": [
     { "test_id": "T11", "name": "Undocumented API Endpoint Discovery", "path": "/api/v1/internal-status", "method": "GET" },
