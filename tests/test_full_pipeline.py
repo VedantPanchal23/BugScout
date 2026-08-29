@@ -1,4 +1,4 @@
-﻿import os
+import os
 import time
 import pytest
 import threading
@@ -10,6 +10,12 @@ from mock_target.server import app
 
 @pytest.fixture(scope="module")
 def live_mock_server():
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(("127.0.0.1", 8888)) == 0:
+            yield
+            return
+
     config = uvicorn.Config(app, host="127.0.0.1", port=8888, log_level="error")
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)

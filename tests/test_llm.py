@@ -1,4 +1,4 @@
-﻿import os
+import os
 import pytest
 from core.llm import LLMManager, HeuristicSecurityEngine, GroqProvider
 
@@ -13,6 +13,7 @@ async def test_heuristic_security_engine():
 
 @pytest.mark.asyncio
 async def test_groq_provider_with_active_key():
+    pytest.importorskip("groq")
     key = os.getenv("GROQ_API_KEY")
     if not key:
         pytest.skip("GROQ_API_KEY not configured in environment.")

@@ -29,6 +29,11 @@ class RepeatedEvaluator:
         self.console = Console(highlight=False)
 
     def start_lab_server(self):
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("127.0.0.1", self.port)) == 0:
+                return None  # Server already running on port
+
         config = uvicorn.Config(benchmark_app, host="127.0.0.1", port=self.port, log_level="error")
         server = uvicorn.Server(config)
         thread = threading.Thread(target=server.run, daemon=True)
@@ -38,7 +43,7 @@ class RepeatedEvaluator:
 
     async def run_repeated_evaluation(self) -> Dict[str, Any]:
         self.console.print("\n[bold cyan]================================================================[/bold cyan]")
-        self.console.print(f"[bold white]   BUGSCOUT REPEATED BENCHMARK EVALUATION ({self.runs} RUNS - μ ± σ)      [/bold white]")
+        self.console.print(f"[bold white]   BUGSCOUT REPEATED BENCHMARK EVALUATION ({self.runs} RUNS - MEAN +/- STD)      [/bold white]")
         self.console.print("[bold cyan]================================================================[/bold cyan]\n")
 
         self.start_lab_server()
@@ -128,13 +133,13 @@ class RepeatedEvaluator:
         dur = data["duration_stat"]
 
         self.console.print(Panel(
-            f"[bold white]Empirical Statistical Distribution (Mean ± Sample Standard Deviation):[/bold white]\n"
-            f"  • [bold]Precision:[/bold] [bold green]{p['mean']}% ± {p['std_dev']}%[/bold green]\n"
-            f"  • [bold]Recall (Sensitivity):[/bold] [bold green]{r['mean']}% ± {r['std_dev']}%[/bold green]\n"
-            f"  • [bold]F1 Score:[/bold] [bold green]{f1['mean']}% ± {f1['std_dev']}%[/bold green]\n"
-            f"  • [bold]Total Outbound Requests:[/bold] [bold yellow]{req['mean']} ± {req['std_dev']} requests[/bold yellow]\n"
-            f"  • [bold]Execution Latency:[/bold] [dim]{dur['mean']}s ± {dur['std_dev']}s[/dim]\n\n"
-            f"[bold cyan]Scientific Note on Stability:[/bold cyan] Five repeated evaluations produced identical detection metrics under deterministic inference settings (temperature = 0, deterministic candidate ordering, and deterministic rule matching), while execution latency varied slightly ({dur['mean']}s ± {dur['std_dev']}s) due to asynchronous network I/O.\n"
+            f"[bold white]Empirical Statistical Distribution (Mean +/- Sample Standard Deviation):[/bold white]\n"
+            f"  * [bold]Precision:[/bold] [bold green]{p['mean']}% +/- {p['std_dev']}%[/bold green]\n"
+            f"  * [bold]Recall (Sensitivity):[/bold] [bold green]{r['mean']}% +/- {r['std_dev']}%[/bold green]\n"
+            f"  * [bold]F1 Score:[/bold] [bold green]{f1['mean']}% +/- {f1['std_dev']}%[/bold green]\n"
+            f"  * [bold]Total Outbound Requests:[/bold] [bold yellow]{req['mean']} +/- {req['std_dev']} requests[/bold yellow]\n"
+            f"  * [bold]Execution Latency:[/bold] [dim]{dur['mean']}s +/- {dur['std_dev']}s[/dim]\n\n"
+            f"[bold cyan]Scientific Note on Stability:[/bold cyan] Five repeated evaluations produced identical detection metrics under deterministic inference settings (temperature = 0, deterministic candidate ordering, and deterministic rule matching), while execution latency varied slightly ({dur['mean']}s +/- {dur['std_dev']}s) due to asynchronous network I/O.\n"
             f"[dim]Results saved to outputs/RepeatedBenchmarkEvaluation.json[/dim]",
             title="Statistical Stability & Deterministic Inference Summary",
             border_style="green"

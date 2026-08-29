@@ -89,3 +89,23 @@ async def test_hidden_benchmark_isolation():
     assert hidden_results["confusion_matrix"]["true_negatives"] + hidden_results["confusion_matrix"]["false_positives"] == 2
 
 
+@pytest.mark.asyncio
+async def test_repeated_evaluator_independent_runs():
+    """Verify that repeated evaluation executes independent runs and computes statistical metrics."""
+    from evaluation.repeated_eval import RepeatedEvaluator
+    evaluator = RepeatedEvaluator(runs=2, port=8888)
+    results = await evaluator.run_repeated_evaluation()
+
+    assert results["total_runs"] == 2
+    assert len(results["individual_runs"]) == 2
+    assert results["individual_runs"][0]["run"] == 1
+    assert results["individual_runs"][1]["run"] == 2
+    assert "precision_stat" in results
+    assert "recall_stat" in results
+    assert results["precision_stat"]["mean"] == 95.0
+    assert results["recall_stat"]["mean"] == 70.37
+    assert results["precision_stat"]["std_dev"] == 0.0
+    assert results["recall_stat"]["std_dev"] == 0.0
+
+
+
