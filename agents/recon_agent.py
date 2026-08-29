@@ -66,7 +66,8 @@ class ReconAgent(BaseAgent):
         async with httpx.AsyncClient(
             timeout=self.context.scope.timeout_seconds,
             verify=self.context.scope.verify_ssl,
-            follow_redirects=True,
+            follow_redirects=False,
+            trust_env=False,
             headers=headers,
             cookies=cookies
         ) as client:
@@ -307,6 +308,17 @@ class ReconAgent(BaseAgent):
         try:
             resp = await client.get(current_url)
             self.context.stats.total_requests_sent += 1
+
+            # Handle Redirects strictly through ScopeGuard validation
+            if resp.status_code in [301, 302, 303, 307, 308] and "location" in resp.headers:
+                redir_target = resp.headers["location"]
+                allowed_redir, _ = self.scope_guard.validate_redirect(current_url, redir_target)
+                if allowed_redir:
+                    full_redir = urljoin(current_url, redir_target)
+                    self._register_endpoint(full_redir, method="GET", source="crawler_redirect")
+                    if full_redir not in visited and depth + 1 <= self.context.scope.max_crawl_depth:
+                        await self._crawl_target(client, full_redir, visited, depth + 1)
+
             # Only invoke BeautifulSoup if response contains HTML tags
             if "<html" in resp.text.lower() or "<body" in resp.text.lower() or "<form" in resp.text.lower() or "<a " in resp.text.lower() or "<script" in resp.text.lower():
                 soup = BeautifulSoup(resp.text, "html.parser")

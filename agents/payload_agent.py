@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import json
@@ -59,6 +59,7 @@ class PayloadAgent(BaseAgent):
             timeout=self.context.scope.timeout_seconds,
             verify=self.context.scope.verify_ssl,
             follow_redirects=False,
+            trust_env=False,
             headers=custom_headers,
             cookies=dict(self.context.scope.session_cookies)
         ) as client:

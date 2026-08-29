@@ -55,6 +55,9 @@ class ScopeGuard:
         elif host_clean.count(":") == 1:
             host_clean = host_clean.split(":")[0]
 
+        # Strip trailing dot (DNS root notation e.g. 127.0.0.1. or safe.local.)
+        host_clean = host_clean.rstrip(".")
+
         if host_clean.lower() in ["localhost", "127.0.0.1", "::1", "0.0.0.0", "0", "127.1"]:
             return True
 
@@ -91,6 +94,22 @@ class ScopeGuard:
                     return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
             except ValueError:
                 pass
+
+        # 4. Check octal / mixed dotted-quad notations (e.g. 0177.0.0.1)
+        if "." in host_clean:
+            parts = host_clean.split(".")
+            if len(parts) == 4:
+                try:
+                    oct_parts = [
+                        int(p, 8) if (p.startswith("0") and len(p) > 1 and not p.startswith(("0x", "0X", "0o", "0O")))
+                        else (int(p, 16) if p.startswith(("0x", "0X")) else int(p, 10))
+                        for p in parts
+                    ]
+                    if all(0 <= p <= 255 for p in oct_parts):
+                        ip = ipaddress.IPv4Address(bytes(oct_parts))
+                        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                except (ValueError, SyntaxError):
+                    pass
 
         return False
 
@@ -173,8 +192,8 @@ class ScopeGuard:
         if self.config.allowed_hosts:
             host_match = False
             for allowed in self.config.allowed_hosts:
-                allowed_clean = allowed.split(":")[0].lower()
-                current_clean = hostname.lower()
+                allowed_clean = allowed.split(":")[0].rstrip(".").lower()
+                current_clean = hostname.rstrip(".").lower()
 
                 if allowed_clean.startswith("*."):
                     domain_suffix = allowed_clean[2:]

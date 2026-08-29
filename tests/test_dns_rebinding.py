@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from core.scope_guard import ScopeGuard
 from core.mission_context import ScopeConfig
 
@@ -37,3 +37,39 @@ def test_dns_rebinding_defense_detection(monkeypatch):
     valid, reason = guard.resolve_and_verify_ip("public-service.example.com")
     assert valid is False
     assert "DNS Rebinding Blocked" in reason
+
+    # 4. Multi-record DNS: Mixed public IPv4 and private IPv4 -> BLOCKED
+    def mock_mixed_public_private_getaddrinfo(host, port):
+        return [
+            (2, 1, 0, "", ("93.184.216.34", 80)),
+            (2, 1, 0, "", ("10.0.0.1", 80))
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", mock_mixed_public_private_getaddrinfo)
+    valid, reason = guard.resolve_and_verify_ip("public-service.example.com")
+    assert valid is False
+    assert "DNS Rebinding Blocked" in reason
+
+    # 5. Multi-record DNS: Mixed public IPv4 and private IPv6 (::1) -> BLOCKED
+    def mock_mixed_v4_v6_private_getaddrinfo(host, port):
+        return [
+            (2, 1, 0, "", ("93.184.216.34", 80)),
+            (23, 1, 0, "", ("::1", 80, 0, 0))
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", mock_mixed_v4_v6_private_getaddrinfo)
+    valid, reason = guard.resolve_and_verify_ip("public-service.example.com")
+    assert valid is False
+    assert "DNS Rebinding Blocked" in reason
+
+    # 6. Multi-record DNS: Multiple genuine public IPv4 and IPv6 records -> ALLOWED
+    def mock_multiple_public_records_getaddrinfo(host, port):
+        return [
+            (2, 1, 0, "", ("93.184.216.34", 80)),
+            (23, 1, 0, "", ("2606:2800:220:1:248:1893:25c8:1946", 80, 0, 0))
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", mock_multiple_public_records_getaddrinfo)
+    valid, reason = guard.resolve_and_verify_ip("public-service.example.com")
+    assert valid is True
+

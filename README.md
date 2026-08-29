@@ -1,10 +1,10 @@
-﻿# 🛡️ BugScout: An LLM-Guided Multi-Agent Security Testing and Attack Surface Discovery Platform
+# 🛡️ BugScout: An LLM-Guided Multi-Agent Security Testing and Attack Surface Discovery Platform
 
 [![Architecture](https://img.shields.io/badge/Architecture-7--Stage%20Policy%20Engine-blue)](#4-system-architecture--policy-engine)
 [![SARIF 2.1.0](https://img.shields.io/badge/SARIF-OASIS%202.1.0%20Compliant-purple)](#14-reproducibility-manifest--reporting-suite)
 [![Benchmark](https://img.shields.io/badge/Benchmark-46%20Labeled%20Cases-brightgreen)](#7-ground-truth-benchmark-lab-46-cases)
 [![LLM Engine](https://img.shields.io/badge/LLM-Groq%20%7C%20Gemini%20%7C%20HF%20%7C%20Heuristic-success)](#4-system-architecture--policy-engine)
-[![Tests](https://img.shields.io/badge/Pytest-29%20Defined%20Tests%20Passed-brightgreen)](#15-test-suite-taxonomy--coverage-29-tests)
+[![Tests](https://img.shields.io/badge/Pytest-38%20Defined%20Tests%20Passed-brightgreen)](#15-test-suite-taxonomy--coverage-38-tests)
 
 ---
 
@@ -376,23 +376,37 @@ Every execution automatically generates an OASIS-compliant reporting suite and a
 
 ```json
 {
-  "experiment_name": "46-Case Ground Truth Benchmark Evaluation",
-  "benchmark_version": "v2.1",
-  "git_commit": "898b10f",
-  "python_version": "3.11.9",
-  "os_platform": "win32",
-  "model_configuration": {
-    "model_name": "groq/qwen3.8-27b (or heuristic fallback)",
-    "temperature": 0.0,
-    "deterministic_inference": true
-  },
-  "experiment_parameters": {
+  "experiment": {
+    "name": "46-Case Ground Truth Benchmark Evaluation",
+    "id": "primary_46_case_benchmark",
+    "benchmark_version": "v2.1",
+    "git_commit": "8769718",
+    "python_version": "3.11.9",
+    "os_platform": "win32",
     "random_seed": 42,
-    "request_budget": 153,
-    "total_requests_sent": 153,
-    "total_findings_confirmed": 19
+    "model_configuration": {
+      "model_name": "groq/qwen3.8-27b (or heuristic fallback)",
+      "temperature": 0.0,
+      "deterministic_inference": true
+    }
   },
-  "evaluation_metrics": {
+  "dataset": {
+    "total_cases": 46,
+    "positive_cases": 27,
+    "negative_cases": 19,
+    "ground_truth_hash": "3c6218d6e9a8f309a47da29b28b76c8c4a4e12e1281ffaa22c06eb18f4a1329a"
+  },
+  "confusion_matrix": {
+    "true_positives": 19,
+    "true_negatives": 18,
+    "false_positives": 1,
+    "false_negatives": 8
+  },
+  "traffic": {
+    "request_budget": 153,
+    "requests_sent": 308
+  },
+  "metrics": {
     "precision": 95.0,
     "recall": 70.37,
     "f1_score": 80.85,
@@ -403,17 +417,17 @@ Every execution automatically generates an OASIS-compliant reporting suite and a
 
 ---
 
-## 15. Test Suite Taxonomy & Coverage (29 Tests)
+## 15. Test Suite Taxonomy & Coverage (38 Tests)
 
 ```text
-29 Automated Tests
+38 Automated Tests
 ├── Unit Tests (Recon, Auth, LLM, Observer, SARIF, WAF)
 ├── Integration Tests (Full Pipeline, Checkpoint, Cross-Format Consistency)
 ├── Benchmark Tests (Ground-Truth Metrics, 4-Tier Ablation)
 ├── Safety Tests (Private Subnets, Cloud Metadata, Obfuscated IPs, Rate Limits)
 ├── LLM Failure Tests (Malformed JSON Fallback, Resilience)
-├── ScopeGuard Bypass Tests (Structural Bypass Prevention, Kill Switch)
-└── DNS & Redirect Tests (Pre-Connect DNS Rebinding, Redirect Escape)
+├── ScopeGuard Bypass Tests (Structural Bypass Prevention, Adversarial LLM Hypotheses, Kill Switch)
+└── DNS & Redirect Tests (Pre-Connect DNS Rebinding, Multi-Record DNS, Redirect Escape)
 ```
 
 Run test suite:
