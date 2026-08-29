@@ -1,31 +1,43 @@
-﻿# Multi-stage secure Dockerfile for BugScout Autonomous Platform
-FROM python:3.11-slim as base
+# ==============================================================================
+# BugScout: LLM-Guided Multi-Agent Security Testing Platform
+# Production-Grade Container Image (Python 3.11-slim)
+# ==============================================================================
 
-# Security settings: non-root user and environment variables
+FROM python:3.11-slim AS base
+
+# Prevent Python from writing .pyc files and enable unbuffered streaming logs
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-WORKDIR /app
-
-# Install system dependencies
+# Install system dependencies (git for commit hashing, curl for health checks)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
+# Set working directory
+WORKDIR /app
+
+# Install Python dependencies first for caching optimization
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code
+# Copy complete project source
 COPY . .
 
-# Create non-privileged user and output directories
-RUN useradd -m -u 1000 bugscout && \
+# Create non-root user for secure container execution
+RUN useradd -m -u 1001 scout && \
     mkdir -p /app/outputs && \
-    chown -R bugscout:bugscout /app
+    chown -R scout:scout /app
 
-USER bugscout
+USER scout
 
+# Expose ports for Benchmark Lab (8888) and Hidden Lab (8899)
+EXPOSE 8888 8899
+
+# Default entrypoint
 ENTRYPOINT ["python", "main.py"]
-CMD ["--help"]
+CMD ["--demo"]

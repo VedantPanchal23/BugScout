@@ -1,28 +1,152 @@
-﻿version: "3.8"
+version: "3.8"
 
 services:
-  mock-target:
+  # ----------------------------------------------------------------------------
+  # Standalone Ground-Truth Benchmark Lab Server (Port 8888)
+  # ----------------------------------------------------------------------------
+  benchmark-lab:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["python", "mock_target/server.py"]
+    container_name: bugscout-lab
+    command: ["python", "-m", "uvicorn", "benchmark_lab.server:benchmark_app", "--host", "0.0.0.0", "--port", "8888"]
     ports:
       - "8888:8888"
     networks:
-      - scout-net
+      - bugscout-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8888/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  bugscout:
+  # ----------------------------------------------------------------------------
+  # Primary Autonomous 46-Case Ground-Truth Benchmark Evaluation
+  # ----------------------------------------------------------------------------
+  evaluate:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["--demo"]
-    depends_on:
-      - mock-target
+    container_name: bugscout-evaluator
+    command: ["--evaluate"]
     volumes:
       - ./outputs:/app/outputs
     networks:
-      - scout-net
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # A/B Baseline Comparison Experiment (Blind Scanner vs. BugScout)
+  # ----------------------------------------------------------------------------
+  compare-modes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-ab-comparison
+    command: ["--compare-modes"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # Cost-Recall Pareto Frontier Curve Analysis
+  # ----------------------------------------------------------------------------
+  budget-curve:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-budget-curve
+    command: ["--budget-curve"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # 4-Tier Component Ablation Study
+  # ----------------------------------------------------------------------------
+  ablation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-ablation
+    command: ["--ablation"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # 5-Run Statistical Stability Evaluation
+  # ----------------------------------------------------------------------------
+  repeated-eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-repeated-eval
+    command: ["--repeated-eval"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # Preliminary Zero-Shot Hidden Generalization Benchmark
+  # ----------------------------------------------------------------------------
+  hidden-eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-hidden-eval
+    command: ["--hidden-eval"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # ScopeGuard Ethical Firewall & Safety Boundary Suite
+  # ----------------------------------------------------------------------------
+  safety-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-safety-test
+    command: ["--safety-test"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # Full Automated Pytest Regression & Security Test Suite (61 Tests)
+  # ----------------------------------------------------------------------------
+  pytest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-pytest
+    entrypoint: ["pytest"]
+    command: ["-v"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
+
+  # ----------------------------------------------------------------------------
+  # Interactive Live Autonomous Scan Trace & Multi-Format Report Generator
+  # ----------------------------------------------------------------------------
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bugscout-demo
+    command: ["--trace", "--demo"]
+    volumes:
+      - ./outputs:/app/outputs
+    networks:
+      - bugscout-net
 
 networks:
-  scout-net:
+  bugscout-net:
     driver: bridge
