@@ -307,19 +307,18 @@ class ReconAgent(BaseAgent):
         try:
             resp = await client.get(current_url)
             self.context.stats.total_requests_sent += 1
-            if resp.status_code != 200:
-                return
+            # Only invoke BeautifulSoup if response contains HTML tags
+            if "<html" in resp.text.lower() or "<body" in resp.text.lower() or "<form" in resp.text.lower() or "<a " in resp.text.lower() or "<script" in resp.text.lower():
+                soup = BeautifulSoup(resp.text, "html.parser")
 
-            soup = BeautifulSoup(resp.text, "html.parser")
-
-            # Extract Links <a href>
-            for a in soup.find_all("a", href=True):
-                link = urljoin(current_url, a["href"])
-                valid_url, _ = self.scope_guard.validate_url(link)
-                if valid_url:
-                    self._register_endpoint(link, method="GET", source="crawler_link")
-                    if link not in visited and depth + 1 <= self.context.scope.max_crawl_depth:
-                        await self._crawl_target(client, link, visited, depth + 1)
+                # Extract Links <a href>
+                for a in soup.find_all("a", href=True):
+                    link = urljoin(current_url, a["href"])
+                    valid_url, _ = self.scope_guard.validate_url(link)
+                    if valid_url:
+                        self._register_endpoint(link, method="GET", source="crawler_link")
+                        if link not in visited and depth + 1 <= self.context.scope.max_crawl_depth:
+                            await self._crawl_target(client, link, visited, depth + 1)
 
             # Extract Forms <form action method>
             for form in soup.find_all("form"):

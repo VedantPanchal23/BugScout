@@ -32,6 +32,25 @@ def generate_reproducibility_manifest(
     except Exception:
         pass
 
+    import hashlib
+    gt_hash = "unknown"
+    gt_path = "benchmark_lab/ground_truth.json"
+    if os.path.exists(gt_path):
+        try:
+            with open(gt_path, "rb") as f:
+                gt_hash = hashlib.sha256(f.read()).hexdigest()
+        except Exception:
+            pass
+
+    default_dataset = {
+        "total_cases": 46,
+        "positive_cases": 27,
+        "negative_cases": 19,
+        "ground_truth_hash": gt_hash
+    }
+    if dataset and "ground_truth_hash" not in dataset:
+        dataset["ground_truth_hash"] = gt_hash
+
     manifest = {
         "experiment": {
             "name": experiment_name,
@@ -49,11 +68,7 @@ def generate_reproducibility_manifest(
                 "heuristic_fallback_available": True
             }
         },
-        "dataset": dataset or {
-            "total_cases": 46,
-            "positive_cases": 27,
-            "negative_cases": 19
-        },
+        "dataset": dataset or default_dataset,
         "confusion_matrix": confusion_matrix or {
             "true_positives": 19,
             "true_negatives": 18,
