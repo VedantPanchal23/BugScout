@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 import uuid
@@ -294,8 +294,10 @@ class ObserverAgent(BaseAgent):
                 iteration_discovered=self.context.current_iteration
             ))
 
-        # 6. XSS Reflection Checks
-        if "<scout_xss_marker" in res.response_body_snippet or "alert(1)" in res.response_body_snippet:
+        # 6. XSS Reflection Checks (only in HTML renderable responses)
+        content_type = headers_lower.get("content-type", "")
+        is_html_response = "html" in content_type or not content_type or (ep and "html" in (ep.baseline_body_snippet or "").lower())
+        if is_html_response and ("<scout_xss_marker" in res.response_body_snippet or "alert(1)" in res.response_body_snippet):
             if "<scout_xss_marker_1>" in res.response_body_snippet or "<scout_xss_marker_2>" in res.response_body_snippet:
                 res.anomaly_detected = True
                 findings.append(Finding(
@@ -303,7 +305,7 @@ class ObserverAgent(BaseAgent):
                     vuln_class=VulnClass.XSS,
                     severity=Severity.MEDIUM,
                     title="Reflected Cross-Site Scripting (XSS)",
-                    description=f"Injected probe payload `{res.payload_sent}` was reflected verbatim and unencoded in the HTTP response body of {res.url}.",
+                    description=f"Injected probe payload `{res.payload_sent}` was reflected verbatim and unencoded in the HTML response body of {res.url}.",
                     cvss_score=6.1,
                     cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
                     cwe_id="CWE-79",

@@ -22,6 +22,9 @@ from rich.prompt import Prompt
 from core.pipeline import BugScoutPipeline
 from core.scope_guard import ScopeViolationError
 from core.llm import LLMManager, GroqProvider, GeminiProvider, HuggingFaceProvider, HeuristicSecurityEngine
+from evaluation.benchmark_runner import BenchmarkEvaluator
+from evaluation.ab_comparison import ABComparisonRunner
+from evaluation.consistency_validator import CrossFormatConsistencyValidator
 
 console = Console(highlight=False)
 
@@ -32,8 +35,8 @@ BANNER = """[bold cyan]
  | |_) | |_| | (_| | ___) | (_| (_) | |_| | |_ 
  |____/ \__,_|\__, ||____/ \___\___/ \__,_|\__|
               |___/                            
-[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.0[/bold white]
-[dim]Zero-Cost | Ethical Boundary Enforcement | SARIF 2.1.0 | Live URL Scanner[/dim]
+[/bold cyan][bold white]Autonomous Multi-Agent Bug Bounty & Attack Surface Scout v3.5[/bold white]
+[dim]Zero-Cost | Ground-Truth Evaluated | SARIF 2.1.0 | A/B Benchmarked[/dim]
 """
 
 
@@ -56,6 +59,9 @@ def parse_args():
     parser.add_argument("--url", "--target", dest="target", default=None, help="Target URL to scout")
     parser.add_argument("--config", default="config/scope.yaml", help="Path to scope.yaml config")
     parser.add_argument("--demo", action="store_true", help="Run local end-to-end demo against built-in mock target")
+    parser.add_argument("--evaluate", "--benchmark", action="store_true", help="Run Ground Truth Benchmark Evaluation and compute Precision/Recall/F1")
+    parser.add_argument("--compare-modes", action="store_true", help="Run A/B Comparison Experiment: Blind Scanner vs Agentic BugScout")
+    parser.add_argument("--validate-consistency", action="store_true", help="Validate cross-format parity across SARIF, HTML, JSON, and MD")
     parser.add_argument("--iterations", type=int, default=2, help="Max agentic feedback loop iterations")
     parser.add_argument("--llm", default="auto", choices=["auto", "groq", "gemini", "hf", "heuristic"], help="LLM backend selection")
     parser.add_argument("--resume", action="store_true", help="Resume scan from checkpoint if available")
@@ -66,6 +72,37 @@ def parse_args():
 async def main_async():
     args = parse_args()
     console.print(BANNER)
+
+    # 1. Ground Truth Benchmark Evaluation Mode
+    if args.evaluate:
+        evaluator = BenchmarkEvaluator()
+        await evaluator.run_evaluation()
+        return
+
+    # 2. A/B Comparison Experiment Mode
+    if args.compare_modes:
+        ab_runner = ABComparisonRunner()
+        await ab_runner.run_comparison()
+        return
+
+    # 3. Cross-Format Consistency Validation Mode
+    if args.validate_consistency:
+        validator = CrossFormatConsistencyValidator()
+        valid, report = validator.validate()
+        if valid:
+            console.print(Panel(
+                f"[bold green]Cross-Format Integrity Confirmed (100% Parity)![/bold green]\n"
+                f"• JSON Findings: {report['counts']['json_findings_count']}\n"
+                f"• SARIF Results: {report['counts']['sarif_results_count']}\n"
+                f"• Markdown Findings: {report['counts']['markdown_findings_count']}\n"
+                f"• HTML Findings: {report['counts']['html_findings_count']}\n"
+                f"All 4 output artifacts are strictly canonical and synchronized.",
+                title="Cross-Format Consistency Validator",
+                border_style="green"
+            ))
+        else:
+            console.print(f"[bold red]Consistency Check Failed:[/bold red] {report}")
+        return
 
     target_url = args.target or args.url_pos
 

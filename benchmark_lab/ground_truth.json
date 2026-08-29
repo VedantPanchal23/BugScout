@@ -1,0 +1,223 @@
+﻿{
+  "benchmark_name": "BugScout Security Benchmark Lab v1.0",
+  "total_known_endpoints": 25,
+  "vulnerabilities": [
+    {
+      "test_id": "T01",
+      "name": "SQL Injection",
+      "vuln_class": "SQL Injection",
+      "cwe_id": "CWE-89",
+      "path": "/api/products",
+      "method": "GET",
+      "parameter": "search",
+      "is_vulnerable": true,
+      "expected_severity": "High",
+      "evidence_pattern": "sqlite3.OperationalError"
+    },
+    {
+      "test_id": "T02",
+      "name": "Reflected XSS",
+      "vuln_class": "Cross-Site Scripting (XSS)",
+      "cwe_id": "CWE-79",
+      "path": "/search",
+      "method": "GET",
+      "parameter": "q",
+      "is_vulnerable": true,
+      "expected_severity": "Medium",
+      "evidence_pattern": "<scout_xss_marker"
+    },
+    {
+      "test_id": "T03",
+      "name": "CORS Misconfiguration",
+      "vuln_class": "CORS Misconfiguration",
+      "cwe_id": "CWE-346",
+      "path": "/api/user/private-data",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": true,
+      "expected_severity": "High",
+      "evidence_pattern": "Access-Control-Allow-Origin"
+    },
+    {
+      "test_id": "T04",
+      "name": "Missing Security Headers",
+      "vuln_class": "Missing Critical Security Headers / Clickjacking",
+      "cwe_id": "CWE-1021",
+      "path": "/",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": true,
+      "expected_severity": "Low",
+      "evidence_pattern": "Missing Headers"
+    },
+    {
+      "test_id": "T05",
+      "name": "GraphQL Schema Introspection",
+      "vuln_class": "GraphQL Schema Introspection Enabled",
+      "cwe_id": "CWE-200",
+      "path": "/graphql",
+      "method": "POST",
+      "parameter": null,
+      "is_vulnerable": true,
+      "expected_severity": "Medium",
+      "evidence_pattern": "__schema"
+    },
+    {
+      "test_id": "T06",
+      "name": "Insecure Direct Object Reference",
+      "vuln_class": "Insecure Direct Object Reference (IDOR)",
+      "cwe_id": "CWE-639",
+      "path": "/api/user/profile",
+      "method": "GET",
+      "parameter": "id",
+      "is_vulnerable": true,
+      "expected_severity": "High",
+      "evidence_pattern": "bob_admin"
+    },
+    {
+      "test_id": "T07",
+      "name": "Open URL Redirection",
+      "vuln_class": "Open URL Redirection",
+      "cwe_id": "CWE-601",
+      "path": "/redirect",
+      "method": "GET",
+      "parameter": "url",
+      "is_vulnerable": true,
+      "expected_severity": "Medium",
+      "evidence_pattern": "Location:"
+    },
+    {
+      "test_id": "T08",
+      "name": "Path / Directory Traversal",
+      "vuln_class": "Path / Directory Traversal",
+      "cwe_id": "CWE-22",
+      "path": "/api/download",
+      "method": "GET",
+      "parameter": "file",
+      "is_vulnerable": true,
+      "expected_severity": "High",
+      "evidence_pattern": "root:x:0:0"
+    },
+    {
+      "test_id": "T09",
+      "name": "Exposed Secrets & Environment",
+      "vuln_class": "Sensitive Data Exposure",
+      "cwe_id": "CWE-200",
+      "path": "/.env",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": true,
+      "expected_severity": "Critical",
+      "evidence_pattern": "DB_PASSWORD"
+    },
+    {
+      "test_id": "T10",
+      "name": "Broken Authentication",
+      "vuln_class": "Broken Authentication / Missing Auth",
+      "cwe_id": "CWE-306",
+      "path": "/api/admin/dashboard",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": true,
+      "expected_severity": "High",
+      "evidence_pattern": "admin_access_granted"
+    }
+  ],
+  "safe_negative_decoys": [
+    {
+      "test_id": "T01-N",
+      "name": "Safe Parameterized Search",
+      "path": "/api/safe-search",
+      "method": "GET",
+      "parameter": "q",
+      "is_vulnerable": false,
+      "reason": "Uses parameterized database query; no SQL syntax errors leaked."
+    },
+    {
+      "test_id": "T02-N",
+      "name": "Safe Encoded Echo",
+      "path": "/safe-echo",
+      "method": "GET",
+      "parameter": "name",
+      "is_vulnerable": false,
+      "reason": "HTML entity encodes all user input; unescaped script reflection rejected."
+    },
+    {
+      "test_id": "T03-N",
+      "name": "Safe Whitelisted CORS",
+      "path": "/api/safe-cors",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": false,
+      "reason": "Does not reflect untrusted origins; uses fixed trusted origin."
+    },
+    {
+      "test_id": "T04-N",
+      "name": "Safe Hardened Headers",
+      "path": "/safe-headers",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": false,
+      "reason": "Sets X-Frame-Options: DENY and Content-Security-Policy headers."
+    },
+    {
+      "test_id": "T05-N",
+      "name": "Safe Production GraphQL",
+      "path": "/safe-graphql",
+      "method": "POST",
+      "parameter": null,
+      "is_vulnerable": false,
+      "reason": "Introspection queries return 400 GraphQL Introspection Disabled."
+    },
+    {
+      "test_id": "T06-N",
+      "name": "Safe Session-Validated Profile",
+      "path": "/api/safe-profile",
+      "method": "GET",
+      "parameter": "id",
+      "is_vulnerable": false,
+      "reason": "Validates session ownership; returns 403 for unauthorized ID mutations."
+    },
+    {
+      "test_id": "T07-N",
+      "name": "Safe Whitelisted Redirect",
+      "path": "/safe-redirect",
+      "method": "GET",
+      "parameter": "url",
+      "is_vulnerable": false,
+      "reason": "Validates destination against whitelist; rejects third-party external origins."
+    },
+    {
+      "test_id": "T08-N",
+      "name": "Safe Sanitized File Download",
+      "path": "/api/safe-download",
+      "method": "GET",
+      "parameter": "file",
+      "is_vulnerable": false,
+      "reason": "Applies os.path.basename and strict directory boundary isolation."
+    },
+    {
+      "test_id": "T09-N",
+      "name": "Safe Public Information",
+      "path": "/safe-info",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": false,
+      "reason": "Public application metadata without secrets or credentials."
+    },
+    {
+      "test_id": "T10-N",
+      "name": "Safe Protected Admin Route",
+      "path": "/api/admin/secure",
+      "method": "GET",
+      "parameter": null,
+      "is_vulnerable": false,
+      "reason": "Strict authorization required; returns 401 Unauthorized without token."
+    }
+  ],
+  "agent_behavior_targets": [
+    { "test_id": "T11", "name": "Undocumented API Endpoint Discovery", "path": "/api/v1/internal-status", "method": "GET" },
+    { "test_id": "T12", "name": "SPA Frontend Client Route Mining", "path": "/settings/security", "method": "GET" },
+    { "test_id": "T13", "name": "Robots/Sitemap Attack Surface Expansion", "path": "/debug/config", "method": "GET" }
+  ]
+}

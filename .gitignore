@@ -9,7 +9,7 @@ __pycache__/
 *.class
 .pytest_cache/
 
-# Outputs & Reports (sensitive scan outputs & checkpoints)
+# Outputs & Reports (sensitive scan outputs, evaluations & checkpoints)
 outputs/*.json
 outputs/*.md
 outputs/*.html

@@ -1,11 +1,14 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlparse, parse_qs
 from typing import Set, Dict, List
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
+import warnings
+
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 from agents.base_agent import BaseAgent
 from core.mission_context import Endpoint

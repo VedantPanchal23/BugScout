@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import uvicorn
 from fastapi import FastAPI, Response, Request
@@ -60,13 +60,14 @@ async def robots():
 
 
 @app.get("/sitemap.xml", response_class=Response)
-async def sitemap():
-    xml = """<?xml version="1.0" encoding="UTF-8"?>
+async def sitemap(request: Request):
+    base = str(request.base_url).rstrip("/")
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
     <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-        <url><loc>http://127.0.0.1:8888/</loc></url>
-        <url><loc>http://127.0.0.1:8888/search</loc></url>
-        <url><loc>http://127.0.0.1:8888/api/products</loc></url>
-        <url><loc>http://127.0.0.1:8888/api/user/private-data</loc></url>
+        <url><loc>{base}/</loc></url>
+        <url><loc>{base}/search</loc></url>
+        <url><loc>{base}/api/products</loc></url>
+        <url><loc>{base}/api/user/private-data</loc></url>
     </urlset>
     """
     return Response(content=xml, media_type="application/xml")
