@@ -20,6 +20,7 @@ outputs/*.sarif
 !outputs/IMPLEMENTATION_REALITY_AUDIT.md
 !outputs/EXPERIMENT_INTEGRITY_REPORT.md
 !outputs/REPRODUCIBILITY_GUIDE.md
+!outputs/FINAL_RELEASE_REPORT.md
 !outputs/ReproducibilityManifest.json
 
 # Environment variables & secrets
