@@ -9,10 +9,13 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, Red
 from pydantic import BaseModel
 
 benchmark_app = FastAPI(
-    title="BugScout Security Benchmark Lab v2.0 (Academic Edition)",
-    description="Ground-truth security testbed with 60+ multi-variant vulnerabilities, deceptive negative decoys, 2-user IDOR, and multi-state auth.",
-    version="2.0.0"
+    title="BugScout Security Benchmark Lab (Academic Edition)",
+    description="Ground-truth security testbed with multi-variant vulnerabilities, deceptive negative decoys, 2-user IDOR, and multi-framework routers.",
+    version="3.0.0"
 )
+
+from benchmark_lab.multi_framework_adapter import get_multi_framework_router
+benchmark_app.include_router(get_multi_framework_router())
 
 
 # ============================================================================

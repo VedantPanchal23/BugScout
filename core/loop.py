@@ -83,6 +83,15 @@ class AgenticLoopController:
         if not self.context.hypothesis_queue:
             with self.console.status("[bold magenta]2/6 Threat Reasoning Agent formulating attack vectors...[/bold magenta]", spinner="dots"):
                 await hypothesis_agent.run()
+            
+            # Policy Orchestration: Apply per-endpoint budgets and priority queue
+            from core.policy_engine import PolicyEngine
+            policy_engine = PolicyEngine()
+            self.context.hypothesis_queue = policy_engine.filter_and_prioritize_hypotheses(
+                self.context.hypothesis_queue,
+                self.context.endpoint_map
+            )
+
             self.console.print(f"  [green][+][/green] Hypotheses ready: Formulated [bold]{len(self.context.hypothesis_queue)}[/bold] prioritized test hypotheses.")
             self.context.record_audit("HypothesisAgent", "Threat Modeling", self.context.target, "COMPLETE", f"Formulated {len(self.context.hypothesis_queue)} hypotheses.")
             if self.context.scope.enable_checkpoints:

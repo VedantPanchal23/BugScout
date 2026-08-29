@@ -5,6 +5,8 @@ import uuid
 from typing import List, Dict, Optional, Tuple
 from agents.base_agent import BaseAgent
 from core.mission_context import TestResult, Finding, VulnClass, Severity, Confidence, Hypothesis, Endpoint
+from core.timing_analyzer import StatisticalTimingAnalyzer
+from core.dom_parser import LexicalDOMContextParser
 
 
 class ObserverAgent(BaseAgent):
@@ -14,14 +16,19 @@ class ObserverAgent(BaseAgent):
     - Missing Critical Security Headers & Clickjacking Exposure
     - GraphQL Schema Introspection Leaks
     - Open URL Redirection
-    - Path / Directory Traversal File Leaks
-    - Multi-Engine SQL Injection Syntax & Timing Anomaly Detectors
-    - Unescaped HTML/DOM Reflection Analysis (XSS)
+    - Path / Directory Traversal File Leaks (POSIX & Windows)
+    - Multi-Engine SQL Injection Syntax & Statistical Timing Anomaly Detectors
+    - Unescaped HTML/DOM & Lexical JavaScript Reflection Analysis (XSS)
     - Insecure Direct Object Reference (IDOR)
     - Environment Secrets & Configuration Leaks (.env, tokens)
     - Missing Authentication on Privileged Routes
     - Agentic Replanning Feedback Controller
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.timing_analyzer = StatisticalTimingAnalyzer(delay_threshold_seconds=1.5, min_z_score=2.5)
+        self.dom_parser = LexicalDOMContextParser()
 
     SQLI_ERROR_PATTERNS = [
         r"you have an error in your sql syntax",

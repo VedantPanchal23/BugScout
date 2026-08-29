@@ -74,6 +74,31 @@ class ScopeGuard:
         except ValueError:
             return False
 
+    def resolve_and_verify_ip(self, host: str) -> Tuple[bool, Optional[str]]:
+        """
+        DNS Rebinding Defense: Resolves domain name to IP and validates against private subnets
+        before network connection. Prevents DNS rebinding SSRF escapes.
+        """
+        import socket
+        host_clean = host.split(":")[0].strip("[]").strip()
+        if self.is_private_or_restricted_ip(host_clean):
+            if not self.config.allow_localhost_for_testing:
+                return False, f"Direct private/restricted host blocked: {host_clean}"
+            return True, None
+
+        # Attempt DNS resolution
+        try:
+            resolved_ips = socket.getaddrinfo(host_clean, None)
+            for item in resolved_ips:
+                ip_addr = item[4][0]
+                if self.is_private_or_restricted_ip(ip_addr):
+                    if not self.config.allow_localhost_for_testing:
+                        return False, f"DNS Rebinding Blocked: Host '{host_clean}' resolved to private IP {ip_addr}"
+        except Exception:
+            pass  # Let normal HTTP client handle unresolved hostnames
+
+        return True, None
+
     def normalize_path(self, raw_path: str) -> str:
         """Normalize URL path with Unicode NFKC, null-byte stripping, and double-decode."""
         if not raw_path:
